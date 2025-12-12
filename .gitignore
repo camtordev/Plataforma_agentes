@@ -1,0 +1,32 @@
+# --- GENERAL ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+# --- PYTHON (BACKEND) ---
+backend/venv/
+backend/env/
+__pycache__/
+*.py[cod]
+*$py.class
+backend/.env
+backend/.pytest_cache/
+
+# --- NODEJS (FRONTEND) ---
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# --- DOCKER ---
+.docker/
+
+# --- LOCAL DATABASE (Si usas SQLite localmente en el futuro) ---
+*.sqlite3
+*.db
