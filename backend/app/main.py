@@ -1,65 +1,107 @@
+# backend/app/main.py
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-import json
-import random
+from .simulation import SimulationEngine 
 
-# Inicializamos la aplicación
 app = FastAPI(title="Plataforma Educativa Multi-Agente")
 
-# --- CONFIGURACIÓN DE SEGURIDAD (CORS) ---
-# Esto es vital. Permite que tu Frontend (React) se conecte a este Backend.
 app.add_middleware(
     CORSMiddleware,
-    # Si tu frontend corre en otro puerto, cámbialo aquí.
-    allow_origins=["http://localhost:5173"], 
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- RUTAS BÁSICAS ---
+# Instancia global del motor
+engine = SimulationEngine()
+
 @app.get("/")
 def read_root():
-    """Ruta de prueba para ver si el servidor responde"""
-    return {"status": "online", "version": "1.0.0"}
+    return {"status": "online", "mode": "modular_architecture"}
 
-# --- MOTOR DE SIMULACIÓN (WebSockets) ---
-# Este endpoint cumple con el RF2 del documento: Ejecución en tiempo real
 @app.websocket("/ws/simulacion")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("✅ Cliente (Frontend) conectado al WebSocket")
-    
-    # ESTADO INICIAL DEL MUNDO
-    # Creamos un agente en la celda (12, 12) del Grid
-    # El Grid es de 25x25, así que las coordenadas van de 0 a 24.
-    agents = [
-        {"id": 1, "x": 12, "y": 12, "color": "#ef4444"}, # Rojo
-        {"id": 2, "x": 5, "y": 5, "color": "#3b82f6"}    # Azul (Segundo agente de prueba)
-    ]
+    print("✅ Cliente conectado al WebSocket")
     
     try:
+        # Enviar estado inicial al conectar
+        await websocket.send_json(engine.get_state())
+
         while True:
-            # 1. ACTUALIZAR ESTADO (RF2.1 Ejecución de Agentes)
-            # Aquí iría la lógica compleja del "Engine". Por ahora, movimiento aleatorio.
-            for agent in agents:
-                dx = random.choice([-1, 0, 1]) # Moverse -1, 0 o +1 en X
-                dy = random.choice([-1, 0, 1]) # Moverse -1, 0 o +1 en Y
+            timeout = engine.speed if engine.is_running else None
+            
+            try:
+                # Esperamos mensaje del frontend
+                raw_data = await asyncio.wait_for(websocket.receive_json(), timeout=timeout)
                 
-                # Actualizar posición asegurando que no se salga del grid (0-24)
-                agent["x"] = max(0, min(24, agent["x"] + dx))
-                agent["y"] = max(0, min(24, agent["y"] + dy))
-            
-            # 2. ENVIAR DATOS (RF2.2 Visualización Animada)
-            # Enviamos la lista de agentes como texto JSON
-            await websocket.send_text(json.dumps(agents))
-            
-            # 3. CONTROL DE VELOCIDAD (Tick Rate)
-            # Esperamos 0.2 segundos (5 FPS) para que se vea el salto entre celdas
-            await asyncio.sleep(0.2)
-            
+                cmd_type = raw_data.get("type")
+                data = raw_data.get("data", {})
+
+                # LOG DE DEPURACIÓN (Solo si no es STEP para no saturar)
+                if cmd_type != "STEP":
+                    print(f"📩 Recibido comando: {cmd_type} -> {data}")
+
+                # --- COMANDOS DE CONTROL ---
+                if cmd_type == "START": 
+                    engine.is_running = True
+                elif cmd_type == "STOP" or cmd_type == "PAUSE": 
+                    engine.is_running = False
+                elif cmd_type == "RESET": 
+                    engine.reset()
+                    await websocket.send_json(engine.get_state())
+                elif cmd_type == "STEP":
+                    engine.step()
+                    await websocket.send_json(engine.get_state())
+                elif cmd_type == "SET_SPEED":
+                    spd = data.get("speed", 1)
+                    if spd > 0: engine.speed = 0.5 / spd
+
+                # --- CONFIGURACIÓN DEL GRID (Tamaño) ---
+                elif cmd_type == "RESIZE_GRID": 
+                    width = int(data.get("width", 25))
+                    height = int(data.get("height", 25))
+                    engine.update_dimensions(width, height)
+                    await websocket.send_json(engine.get_state())
+
+                # --- CONFIGURACIÓN DE SIMULACIÓN (Pasos, etc) ---
+                # ESTE BLOQUE FALTABA EN TU CÓDIGO ANTERIOR
+                elif cmd_type == "UPDATE_CONFIG":
+                    engine.update_config(data)
+                    await websocket.send_json(engine.get_state())
+
+                # --- CREACIÓN DE ELEMENTOS ---
+                elif cmd_type == "ADD_AGENT":
+                    engine.add_agent(
+                        data.get("x"), 
+                        data.get("y"), 
+                        agent_type=data.get("agent_type", "reactive"), 
+                        strategy=data.get("strategy", "bfs")
+                    )
+                    await websocket.send_json(engine.get_state())
+
+                elif cmd_type == "ADD_FOOD":
+                    engine.add_food(data.get("x"), data.get("y"))
+                    await websocket.send_json(engine.get_state())
+                
+                elif cmd_type == "ADD_OBSTACLE":
+                    engine.add_obstacle(data.get("x"), data.get("y"))
+                    await websocket.send_json(engine.get_state())
+
+                elif cmd_type == "REMOVE_ELEMENT":
+                    engine.remove_at(data.get("x"), data.get("y"))
+                    await websocket.send_json(engine.get_state())
+
+            except asyncio.TimeoutError:
+                # Si se acaba el tiempo y la simulación corre, avanzamos un paso
+                if engine.is_running:
+                    engine.step()
+                    await websocket.send_json(engine.get_state())
+
     except WebSocketDisconnect:
+        engine.is_running = False
         print("❌ Cliente desconectado")
     except Exception as e:
-        print(f"⚠️ Error en la simulación: {e}")
+        print(f"⚠️ Error en websocket: {e}")

@@ -27,6 +27,6 @@ frontend/yarn-error.log*
 # --- DOCKER ---
 .docker/
 
-# --- LOCAL DATABASE (Si usas SQLite localmente en el futuro) ---
+# --- LOCAL DATABASE ---
 *.sqlite3
 *.db

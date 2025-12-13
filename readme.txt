@@ -65,6 +65,18 @@ Si la conexión es exitosa, verás agentes (puntos de colores) moviéndose autom
 Estructura de Archivos del Backend (Python/FastAPI)
 backend/
 ├── app/
+|    ├── agents/                  # 🧠 LÓGICA DE AGENTES (Jerarquía de Clases)
+│   ├── __init__.py
+│   ├── base.py              # Clase abstracta 'Agent' (x, y, energy)
+│   ├── factory.py           # Patrón Factory para instanciar agentes dinámicamente
+│   ├── reactive.py          # Agente simple (estímulo-respuesta)
+│   ├── goal_based.py        # Agente complejo (planificación)
+│   ├── model_based.py       # Agente con memoria del mundo
+│   └── utility.py           # Funciones de utilidad y métricas
+│
+├── algorithms/              # 📐 ALGORITMOS DE BÚSQUEDA Y PATHFINDING
+│   ├── __init__.py
+│   └── search.py            # Implementación de BFS, DFS, A*
 │   ├── api/
 │   │   ├── v1/
 │   │   │   ├── endpoints/
@@ -107,7 +119,8 @@ backend/
 │   │   ├── connection_manager.py    # Maneja salas (rooms) para colaborativo
 │   │   └── events.py                # Rutas del socket (connect, move, update)
 │   │
-│   └── main.py                      # Punto de entrada
+│   └── main.py                      # Punto de entrada (FastAPI, rutas WebSocket)
+|    └── simulation.py            # MOTOR DE FÍSICA (Loop, reglas, validación, estado global)    
 ├── alembic/                         # Migraciones de Base de Datos
 ├── tests/
 ├── requirements.txt
@@ -119,6 +132,11 @@ Puntos Clave del Backend:
     - services/engine/: Aquí reside la lógica que mueve a los 100 agentes. No está en la vista (API), sino en un servicio dedicado que corre en memoria.
 
     - sandbox/: Es el módulo encargado de tomar el string de código que viene del frontend y ejecutarlo aisladamente para cumplir con el RF3.2.
+            
+
+        agents/factory.py: Desacopla la creación de agentes. Recibe un string (ej: "goal_based") y devuelve la instancia correcta con sus estrategias inyectadas.
+
+        simulation.py: Es el orquestador de la simulación. Mantiene el estado (agents, food, obstacles), valida movimientos, gestiona colisiones y controla los turnos (step()).
 
 Estructura de Archivos del Frontend (React + JavaScript)
 frontend/
@@ -146,10 +164,13 @@ frontend/
 │   │
 │   ├── context/                     # Estado Global (React Context o Zustand)
 │   │   ├── AuthContext.jsx
-│   │   └── SimulationContext.jsx    # Guarda el estado actual del mundo (positions)
+│   │   └── SimulationContext.jsx    # ⚡ CEREBRO DEL FRONTEND
+    │                                # - Mantiene la conexión WebSocket ÚNICA y Global.
+    │                                # - Despacha actualizaciones de estado (Reducer).
+│
 │   │
 │   ├── hooks/                       # Lógica reutilizable
-│   │   ├── useSocket.js             # Hook para conectar con FastAPI WebSockets
+│   │   ├── useSocket.js             # Hook auxiliar para exponer 'sendMessage' a los componentes.
 │   │   ├── useGameLoop.js           # Sincronización de frames de animación
 │   │   └── useKeyboard.js
 │   │
@@ -199,3 +220,24 @@ Recepción: En el Frontend, useSocket.js recibe el JSON.
 
 
 Renderizado: GridCanvas.jsx lee los nuevos datos y mueve los sprites de los agentes suavemente usando interpolación.
+
+📡 Protocolo de Comunicación (WebSocket)El sistema se comunica mediante mensajes JSON estrictos. Si estás programando una IA o un bot para interactuar con este sistema, usa este protocolo.1. Del Servidor al Cliente (WORLD_UPDATE)El backend envía esto cada vez que el mundo cambia (por un step o una acción del usuario).JSON{
+  "type": "WORLD_UPDATE",
+  "data": {
+    "step": 42,
+    "width": 50,
+    "height": 50,
+    "isRunning": true,
+    "agents": [
+      { "id": "agent_0", "x": 10, "y": 5, "type": "reactive", "energy": 80 }
+    ],
+    "food": [{ "x": 15, "y": 20, "id": "food_0" }],
+    "obstacles": [{ "x": 5, "y": 5 }],
+    "config": {
+        "maxSteps": 100,
+        "isUnlimited": false,
+        "stopOnFood": true
+    }
+  }
+}
+2. Del Cliente al Servidor (Comandos)Estos son los comandos que el Frontend envía para controlar la simulación:Comando (type)Payload (data)DescripciónSTART{}Inicia el bucle de simulación.STOP{}Detiene el bucle.STEP{}Avanza un único paso manualmente.RESET{}Limpia agentes y comida, mantiene configuración.RESIZE_GRID{ "width": 50, "height": 50 }Redimensiona el mapa y resetea entidades.UPDATE_CONFIG{ "maxSteps": 200, "stopOnFood": false }Actualiza reglas de parada y límites.ADD_AGENT{ "x": 10, "y": 10, "agent_type": "goal_based", "strategy": "astar" }Crea un agente en la posición dada.ADD_FOOD{ "x": 5, "y": 5 }Añade comida.🔄 Flujo de Ejecución (Ejemplo: Drag & Drop)Usuario: Arrastra un agente "Basado en Objetivos" al Grid en el Frontend.Frontend (Sidebar.jsx): Detecta el evento drop, captura las coordenadas y llama a sendMessage.Envía: { "type": "ADD_AGENT", "data": { "x": 5, "y": 5, "agent_type": "goal_based", "strategy": "astar" } }Backend (main.py): Recibe el JSON y enruta al SimulationEngine.Backend (simulation.py): Llama a AgentFactory para crear la instancia Python correcta y la añade a la lista self.agents.Backend: Responde inmediatamente con el nuevo estado (WORLD_UPDATE).Frontend (SimulationContext): Recibe el estado actualizado y React vuelve a pintar el Grid con el nuevo agente.
