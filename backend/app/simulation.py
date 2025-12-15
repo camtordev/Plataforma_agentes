@@ -1,5 +1,9 @@
+import random
+import math
 from typing import List, Dict, Any
 from .agents.factory import AgentFactory
+# IMPORTANTE: Asegúrate de que el archivo pathfinding.py exista en app/algorithms/
+from .algorithms.pathfinding import Pathfinding
 
 class SimulationEngine:
     def __init__(self):
@@ -8,6 +12,7 @@ class SimulationEngine:
         self.agents = []    # Lista de instancias de objetos (Agent)
         self.food = []      # Lista de diccionarios
         self.obstacles = [] # Lista de diccionarios
+        self.messages = []  # Buzón global para agentes cooperativos
         self.is_running = False
         self.step_count = 0
         self.speed = 0.5 
@@ -16,12 +21,16 @@ class SimulationEngine:
         self.max_steps = 100     # Límite por defecto
         self.is_unlimited = False # Si es True, ignora el límite
         self.stop_on_food = True  # Detener si no hay comida
+        
+        # Q-Learning Global Table (Simple version)
+        self.q_table = {} 
 
     def reset(self):
         """Reinicia la simulación, pero MANTIENE la configuración (max_steps, etc)."""
         self.agents = []
         self.food = []
         self.obstacles = []
+        self.messages = []
         self.step_count = 0
         self.is_running = False
         # NOTA: No reseteamos max_steps ni is_unlimited aquí para que persistan
@@ -56,12 +65,12 @@ class SimulationEngine:
             spd = float(config["speed"])
             if spd > 0: self.speed = 0.5 / spd
 
-    # --- MÉTODO CORREGIDO: Acepta config explícitamente ---
+    # --- AGREGAR AGENTE (Configuración + Factory) ---
     def add_agent(self, x: int, y: int, agent_type: str = "reactive", strategy: str = "bfs", config: Dict = None):
         if not self._is_occupied(x, y):
             new_id = f"agent_{len(self.agents)}"
             try:
-                # Creamos el agente
+                # Creamos el agente usando el Factory
                 agent = AgentFactory.create_agent(agent_type, new_id, x, y, strategy=strategy)
                 
                 # APLICAMOS LA CONFIGURACIÓN DEL FRONTEND (Si existe)
@@ -80,7 +89,7 @@ class SimulationEngine:
             except ValueError as e:
                 print(f"Error creating agent: {e}")
 
-    # --- MÉTODO CORREGIDO: Ahora acepta config ---
+    # --- AGREGAR COMIDA ---
     def add_food(self, x: int, y: int, food_type: str = "food", config: Dict = None):
         if not self._is_occupied(x, y):
             food_item = {
@@ -101,7 +110,8 @@ class SimulationEngine:
                 food_item["value"] = 20
 
             self.food.append(food_item)
-    # --- MÉTODO CORREGIDO: Ahora acepta config ---
+
+    # --- AGREGAR OBSTÁCULO ---
     def add_obstacle(self, x: int, y: int, config: Dict = None):
         if not self._is_occupied(x, y):
             obs_item = {"x": x, "y": y}
@@ -132,6 +142,137 @@ class SimulationEngine:
             if o['x'] == x and o['y'] == y: return True
         return False
 
+    # =========================================================================
+    # LÓGICA CENTRAL DE TOMA DE DECISIONES DE LOS AGENTES (CEREBROS)
+    # =========================================================================
+    def _get_agent_decision(self, agent, world_state):
+        # Intentamos obtener la estrategia, default a bfs
+        strategy = getattr(agent, "strategy", "bfs")
+        
+        # Normalizamos el tipo de agente para el switch
+        agent_type_class = agent.__class__.__name__.lower()
+        if hasattr(agent, "type") and agent.type:
+             type_str = agent.type.lower()
+        else:
+             type_str = "reactive" # Default
+
+        # 1. AGENTE REACTIVO (Solo ve vecinos)
+        if "reactive" in type_str:
+            # Buscar comida adyacente
+            for dx, dy in [(0,1), (0,-1), (1,0), (-1,0)]:
+                nx, ny = agent.x + dx, agent.y + dy
+                for f in self.food:
+                    if f['x'] == nx and f['y'] == ny:
+                        return dx, dy
+            # Si no, movimiento aleatorio válido
+            valid_moves = Pathfinding.get_neighbors(agent.x, agent.y, self.width, self.height, self.obstacles)
+            if valid_moves:
+                next_pos = random.choice(valid_moves)
+                return next_pos[0] - agent.x, next_pos[1] - agent.y
+            return 0, 0
+
+        # 2. AGENTE EXPLORADOR (Con Memoria)
+        elif "explorer" in type_str:
+            # Inicializar memoria si no existe
+            if not hasattr(agent, "visited"): agent.visited = set()
+            agent.visited.add((agent.x, agent.y))
+            
+            valid_moves = Pathfinding.get_neighbors(agent.x, agent.y, self.width, self.height, self.obstacles)
+            # Priorizar no visitados
+            unvisited = [m for m in valid_moves if m not in agent.visited]
+            
+            if unvisited:
+                target = random.choice(unvisited)
+            elif valid_moves:
+                target = random.choice(valid_moves) # Backtracking simple
+            else:
+                return 0,0
+            return target[0] - agent.x, target[1] - agent.y
+
+        # 3. AGENTE RECOLECTOR (Planificador - A*, BFS, etc.)
+        elif "collector" in type_str:
+            # Buscar comida más cercana (Objetivo)
+            target_food = None
+            min_dist = float('inf')
+            
+            for f in self.food:
+                dist = abs(f['x'] - agent.x) + abs(f['y'] - agent.y)
+                if dist < min_dist:
+                    min_dist = dist
+                    target_food = (f['x'], f['y'])
+            
+            if target_food:
+                start = (agent.x, agent.y)
+                dx, dy = 0, 0
+                
+                # Ejecutar algoritmo seleccionado
+                if strategy == "bfs":
+                    dx, dy = Pathfinding.bfs(start, target_food, self.width, self.height, self.obstacles)
+                elif strategy == "dfs":
+                    dx, dy = Pathfinding.dfs(start, target_food, self.width, self.height, self.obstacles)
+                elif strategy == "dijkstra":
+                    dx, dy = Pathfinding.dijkstra(start, target_food, self.width, self.height, self.obstacles)
+                elif strategy == "astar":
+                    dx, dy = Pathfinding.a_star(start, target_food, self.width, self.height, self.obstacles)
+                else:
+                    # Default a BFS si la estrategia falla
+                    dx, dy = Pathfinding.bfs(start, target_food, self.width, self.height, self.obstacles)
+
+                return dx, dy
+            
+            return 0, 0 
+
+        # 4. AGENTE COOPERATIVO (Comunicación)
+        elif "cooperative" in type_str:
+            # Lógica simple: Si hay mensajes globales de comida, ir allí.
+            # Si no, comportarse como explorador.
+            target = None
+            
+            # Revisar buzón global (Simulación de radio)
+            if self.messages:
+                last_msg = self.messages[-1] # Tomar el último mensaje
+                target = last_msg.get("pos")
+            
+            if target:
+                 start = (agent.x, agent.y)
+                 dx, dy = Pathfinding.a_star(start, target, self.width, self.height, self.obstacles)
+                 return dx, dy
+            else:
+                # Comportamiento explorador fallback
+                valid_moves = Pathfinding.get_neighbors(agent.x, agent.y, self.width, self.height, self.obstacles)
+                if valid_moves:
+                    next_pos = random.choice(valid_moves)
+                    return next_pos[0] - agent.x, next_pos[1] - agent.y
+            return 0, 0
+
+        # 5. AGENTE COMPETITIVO (Agresivo)
+        elif "competitive" in type_str:
+            # Prioriza comida sobre todo, usando A* siempre (es el más rápido)
+            target_food = None
+            min_dist = float('inf')
+            
+            for f in self.food:
+                dist = abs(f['x'] - agent.x) + abs(f['y'] - agent.y)
+                if dist < min_dist:
+                    min_dist = dist
+                    target_food = (f['x'], f['y'])
+            
+            if target_food:
+                start = (agent.x, agent.y)
+                dx, dy = Pathfinding.a_star(start, target_food, self.width, self.height, self.obstacles)
+                return dx, dy
+            
+            # Si no hay comida, moverse aleatoriamente para no gastar cómputo
+            return random.choice([(0,1), (0,-1), (1,0), (-1,0)])
+
+        # 6. AGENTE Q-LEARNING (RL)
+        elif "q_learning" in type_str or "rl" in type_str:
+            # Placeholder: Movimiento aleatorio hasta implementar tabla Q completa
+            # En un sistema real, aquí consultarías self.q_table[state]
+            return random.choice([(0,1), (0,-1), (1,0), (-1,0)])
+
+        return 0, 0
+
     def step(self):
         """Ciclo principal de la simulación."""
         
@@ -146,6 +287,10 @@ class SimulationEngine:
 
         self.step_count += 1
         
+        # Limpiar mensajes antiguos (TTL simple de 1 turno)
+        self.messages = []
+
+        # Snapshot del mundo
         world_state = {
             "food": self.food,
             "obstacles": self.obstacles,
@@ -157,20 +302,23 @@ class SimulationEngine:
         for agent in self.agents:
             if agent.energy <= 0:
                 continue
-
-            dx, dy = agent.decide_move(world_state)
             
+            # --- FASE 1: DECIDIR INTENCIÓN ---
+            dx, dy = self._get_agent_decision(agent, world_state)
+            
+            # --- FASE 2: RESOLUCIÓN DE CONFLICTOS Y APLICACIÓN ---
             new_x = max(0, min(self.width - 1, agent.x + dx))
             new_y = max(0, min(self.height - 1, agent.y + dy))
 
-            collision = False
+            # 1. Colisión con Obstáculos
+            collision_obs = False
             for obs in self.obstacles:
                 if obs['x'] == new_x and obs['y'] == new_y:
-                    collision = True
+                    collision_obs = True
                     break
             
-            if not collision:
-                # Verificar colisión con otros agentes
+            if not collision_obs:
+                # 2. Colisión con Agentes
                 agent_collision = False
                 for other in self.agents:
                     if other.id != agent.id and other.x == new_x and other.y == new_y:
@@ -180,16 +328,22 @@ class SimulationEngine:
                 if not agent_collision:
                     agent.x = new_x
                     agent.y = new_y
-                    agent.energy -= 0.5
+                    agent.energy -= 0.5 
             else:
-                agent.energy -= 0.1
+                agent.energy -= 0.1 
 
+            # 3. Interacción con Recursos (Comer)
             for f in self.food[:]:
                 if f['x'] == agent.x and f['y'] == agent.y:
-                    # Usamos el valor nutricional del objeto comida
                     energy_gain = f.get("value", 20)
-                    agent.energy = min(150, agent.energy + energy_gain) # Tope de energía
+                    agent.energy = min(150, agent.energy + energy_gain) 
                     self.food.remove(f)
+                    
+                    # SI ES COOPERATIVO: Avisar donde encontró comida (para otros turnos)
+                    # En una simulación real, avisaría ANTES de comer, o avisaría de comida adyacente.
+                    # Aquí simplificamos: avisa "hubo comida aquí" (útil si hay clusters).
+                    if "cooperative" in getattr(agent, "type", "").lower():
+                        self.messages.append({"pos": (agent.x, agent.y), "from": agent.id})
 
         # 2. VERIFICACIÓN FINAL POST-MOVIMIENTO
         if self.stop_on_food and len(self.food) == 0 and len(self.agents) > 0:

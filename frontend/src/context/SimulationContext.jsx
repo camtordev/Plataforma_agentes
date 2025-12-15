@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from "react";
+// --- NUEVO: Importamos el generador de plantillas ---
+import { getTemplate } from "../templates/agentTemplates"; 
 
 // 1. Estado Inicial
 const initialState = {
@@ -10,9 +12,13 @@ const initialState = {
   gridConfig: { width: 25, height: 25, cellSize: 20 },
   
   // Herramienta activa por defecto
-  selectedTool: "select", // 'select' | 'brush' | 'eraser' | 'multiselect'
+  selectedTool: "select", 
 
   code: "",
+
+  // --- NUEVO: Estado para la plantilla seleccionada ---
+  // Inicializamos con la plantilla reactiva por defecto para que el panel no salga vacío
+  selectedTemplate: getTemplate('reactive'),
 
   // Configuración del Agente a insertar
   agentConfig: {
@@ -55,7 +61,7 @@ function simulationReducer(state, action) {
             height: action.payload.height || state.gridConfig.height
         },
         
-        // Si el backend dice que paró (por límite de pasos), actualizamos
+        // Si el backend dice que paró, actualizamos
         isRunning: action.payload.isRunning !== undefined ? action.payload.isRunning : state.isRunning,
 
         // Sincronizar config si el backend la devuelve
@@ -68,6 +74,9 @@ function simulationReducer(state, action) {
     // Actualizar herramienta seleccionada
     case "SET_TOOL": return { ...state, selectedTool: action.payload };
     
+    // --- NUEVO: Actualizar la plantilla actual ---
+    case "SET_TEMPLATE": return { ...state, selectedTemplate: action.payload };
+
     case "SET_AGENT_CONFIG":
       return { ...state, agentConfig: { ...state.agentConfig, ...action.payload } };
 
@@ -85,13 +94,12 @@ const SimulationContext = createContext(null);
 // 4. Provider
 export function SimulationProvider({ children }) {
   const [state, dispatch] = useReducer(simulationReducer, initialState);
-  const socketRef = useRef(null); // Referencia única al WebSocket
+  const socketRef = useRef(null); 
 
-  // --- CONEXIÓN WEBSOCKET CENTRALIZADA (CORREGIDA) ---
+  // --- CONEXIÓN WEBSOCKET CENTRALIZADA ---
   useEffect(() => {
     const WS_URL = "ws://localhost:8000/ws/simulacion";
     
-    // Si ya existe una conexión abierta, no creamos otra (evita duplicados en modo desarrollo)
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         return; 
     }
@@ -106,7 +114,6 @@ export function SimulationProvider({ children }) {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        // Manejo del formato nuevo
         if (message.type === "WORLD_UPDATE") {
             dispatch({ type: "UPDATE_WORLD", payload: message.data });
         }
@@ -121,15 +128,14 @@ export function SimulationProvider({ children }) {
         console.error("⚠️ Error en WebSocket:", error);
     };
 
-    // Función de limpieza al desmontar
     return () => {
       if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
           ws.close();
       }
     };
-  }, []); // Solo corre al montar
+  }, []); 
 
-  // --- FUNCIÓN PARA ENVIAR (Accesible globalmente) ---
+  // --- FUNCIÓN PARA ENVIAR ---
   const sendMessage = useCallback((msg) => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         socketRef.current.send(JSON.stringify(msg));
@@ -138,7 +144,14 @@ export function SimulationProvider({ children }) {
     }
   }, []);
 
-  // Helpers
+  // --- NUEVO HELPER: Cambiar Plantilla por Tipo ---
+  // Esta función encapsula la lógica de buscar la plantilla y despachar la acción
+  const setTemplateByType = useCallback((type, params = {}) => {
+    const template = getTemplate(type, params);
+    dispatch({ type: "SET_TEMPLATE", payload: template });
+  }, []);
+
+  // Helpers existentes
   const setIsRunning = useCallback((isRunning) => {
     dispatch({ type: isRunning ? "START_SIMULATION" : "STOP_SIMULATION" });
     sendMessage({ type: isRunning ? "START" : "STOP" });
@@ -161,6 +174,10 @@ export function SimulationProvider({ children }) {
       obstacles: state.obstacles,
       step: state.step
     },
+    // Nuevos valores expuestos
+    selectedTemplate: state.selectedTemplate,
+    setTemplateByType, 
+    
     sendMessage,     
     setIsRunning,
     setSelectedTool, 

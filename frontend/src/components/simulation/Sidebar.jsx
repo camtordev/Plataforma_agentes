@@ -1,9 +1,11 @@
 "use client"
 import React, { useState } from "react"
 import { 
+  // Iconos existentes
   Bot, Apple, Box, Zap, Settings2, Shield, Eye, 
-  Grid3x3, Clock,
-  MousePointer2, Brush, Eraser, BoxSelect 
+  Grid3x3, Clock, MousePointer2, Brush, Eraser, BoxSelect,
+  // NUEVOS ICONOS PARA LOS AGENTES
+  Activity, Users, Swords, BrainCircuit 
 } from "lucide-react"
 import { useSimulation } from "../../context/SimulationContext"
 import PropertyConfigModal from "./PropertyConfigModal"
@@ -16,18 +18,46 @@ const TOOL_MODES = [
     { id: 'multiselect', label: 'Sel. Múltiple', icon: BoxSelect },
 ];
 
-// --- B. DEFINICIÓN DE ELEMENTOS ARRASTRABLES ---
+// --- B. DEFINICIÓN DE ELEMENTOS ARRASTRABLES (LISTA COMPLETA) ---
 const INITIAL_ELEMENTS = [
+  // 1. Agente Reactivo
+  { 
+    id: "agent-reactive", type: "agent", subtype: "reactive", label: "Reactivo", 
+    icon: Activity, color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+    defaultConfig: { speed: 5, initialEnergy: 80, color: "#a855f7" }
+  },
+  // 2. Agente Explorador (Memoria)
   { 
     id: "agent-explorer", type: "agent", subtype: "explorer", label: "Explorador", 
     icon: Eye, color: "text-blue-400 bg-blue-500/10 border-blue-500/20",
     defaultConfig: { speed: 5, visionRadius: 5, initialEnergy: 100, color: "#60a5fa" }
   },
+  // 3. Agente Recolector (Planificador)
   { 
     id: "agent-collector", type: "agent", subtype: "collector", label: "Recolector", 
     icon: Bot, color: "text-green-400 bg-green-500/10 border-green-500/20",
     defaultConfig: { speed: 3, visionRadius: 3, initialEnergy: 150, color: "#4ade80" }
   },
+  // 4. Agente Cooperativo
+  { 
+    id: "agent-coop", type: "agent", subtype: "cooperative", label: "Cooperativo", 
+    icon: Users, color: "text-teal-400 bg-teal-500/10 border-teal-500/20",
+    defaultConfig: { speed: 4, initialEnergy: 120, color: "#2dd4bf" }
+  },
+  // 5. Agente Competitivo
+  { 
+    id: "agent-comp", type: "agent", subtype: "competitive", label: "Competitivo", 
+    icon: Swords, color: "text-orange-400 bg-orange-500/10 border-orange-500/20",
+    defaultConfig: { speed: 6, initialEnergy: 100, color: "#fb923c" }
+  },
+  // 6. Agente Q-Learning
+  { 
+    id: "agent-rl", type: "agent", subtype: "q_learning", label: "Q-Learning", 
+    icon: BrainCircuit, color: "text-pink-400 bg-pink-500/10 border-pink-500/20",
+    defaultConfig: { speed: 5, initialEnergy: 100, color: "#f472b6", epsilon: 0.1, alpha: 0.5, gamma: 0.9 }
+  },
+
+  // --- RECURSOS Y OBSTÁCULOS ---
   { 
     id: "res-food", type: "resource", subtype: "food", label: "Comida", 
     icon: Apple, color: "text-red-400 bg-red-500/10 border-red-500/20",
@@ -59,7 +89,8 @@ export default function Sidebar() {
   const { 
     gridConfig, simulationConfig, 
     dispatch, sendMessage, isRunning,
-    selectedTool, setSelectedTool 
+    selectedTool, setSelectedTool,
+    setTemplateByType // Extraemos la función para actualizar la plantilla
   } = useSimulation()
 
   const handleDragStart = (e, element) => {
@@ -68,6 +99,9 @@ export default function Sidebar() {
         return;
     }
     if (selectedTool !== 'brush') setSelectedTool('brush');
+
+    // ACTUALIZAR PLANTILLA AL ARRASTRAR
+    setTemplateByType(element.subtype, element.defaultConfig);
 
     e.dataTransfer.effectAllowed = "copy"
     const payload = {
@@ -89,32 +123,28 @@ export default function Sidebar() {
     setEditingId(null)
   }
 
-  // --- CORRECCIÓN IMPORTANTE AQUÍ ---
+  // --- MANEJO DE REDIMENSIÓN DE GRID ---
   const handleGridResize = (dimension, value) => {
     const newValue = parseInt(value, 10)
     const newGridConfig = { ...gridConfig, [dimension]: newValue }
     dispatch({ type: "SET_GRID_CONFIG", payload: newGridConfig })
     
-    // ANTES (ERROR): sendMessage("RESIZE_GRID", { ... })
-    // AHORA (CORRECTO):
     sendMessage({ 
         type: "RESIZE_GRID", 
         data: { width: newGridConfig.width, height: newGridConfig.height } 
     })
   }
 
+  // --- MANEJO DE CONFIGURACIÓN DE SIMULACIÓN ---
   const handleSimConfigChange = (key, value) => {
     const newConfig = { ...simulationConfig, [key]: value }
     dispatch({ type: "SET_SIMULATION_CONFIG", payload: newConfig })
     
-    // ANTES (ERROR): sendMessage("UPDATE_CONFIG", newConfig)
-    // AHORA (CORRECTO):
     sendMessage({ 
         type: "UPDATE_CONFIG", 
         data: newConfig 
     })
   }
-  // ----------------------------------
 
   const currentEditingElement = elementsList.find(t => t.id === editingId)
 
@@ -122,7 +152,7 @@ export default function Sidebar() {
     <>
       <div className="w-72 h-full bg-zinc-900 border-r border-zinc-800 flex flex-col font-sans overflow-hidden">
         
-        {/* HERRAMIENTAS */}
+        {/* HERRAMIENTAS SUPERIORES */}
         <div className="p-3 border-b border-zinc-800 bg-zinc-950/50">
             <h3 className="text-[10px] font-bold text-zinc-500 uppercase mb-2 px-1">Herramientas</h3>
             <div className="grid grid-cols-4 gap-2">
@@ -152,13 +182,13 @@ export default function Sidebar() {
             </div>
         </div>
 
-        {/* TABS */}
+        {/* PESTAÑAS (PALETA / AJUSTES) */}
         <div className="flex border-b border-zinc-800 shrink-0">
             <button onClick={() => setActiveTab('elements')} className={`flex-1 py-3 text-xs font-medium uppercase tracking-wide transition-colors ${activeTab === 'elements' ? 'text-blue-400 border-b-2 border-blue-500 bg-zinc-800/50' : 'text-zinc-500 hover:text-zinc-300'}`}>Paleta</button>
             <button onClick={() => setActiveTab('settings')} className={`flex-1 py-3 text-xs font-medium uppercase tracking-wide transition-colors ${activeTab === 'settings' ? 'text-blue-400 border-b-2 border-blue-500 bg-zinc-800/50' : 'text-zinc-500 hover:text-zinc-300'}`}>Ajustes</button>
         </div>
 
-        {/* ELEMENTOS */}
+        {/* CONTENIDO: ELEMENTOS (AGETNES, RECURSOS, OBSTACULOS) */}
         {activeTab === 'elements' && (
             <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-zinc-800">
                 {['agent', 'resource', 'obstacle'].map(category => (
@@ -174,7 +204,9 @@ export default function Sidebar() {
                             <div
                                 draggable
                                 onDragStart={(e) => handleDragStart(e, element)}
-                                className={`flex-1 flex items-center gap-3 p-2.5 rounded-md border cursor-grab active:cursor-grabbing transition-all hover:brightness-110 ${element.color} border-opacity-40 ${selectedTool === 'eraser' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                // ACTUALIZAR PLANTILLA AL HACER CLIC
+                                onClick={() => setTemplateByType(element.subtype, element.defaultConfig)}
+                                className={`flex-1 flex items-center gap-3 p-2.5 rounded-md border cursor-pointer active:cursor-grabbing transition-all hover:brightness-110 ${element.color} border-opacity-40 ${selectedTool === 'eraser' ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <Icon size={18} className="shrink-0" />
                                 <div className="overflow-hidden">
@@ -196,7 +228,7 @@ export default function Sidebar() {
             </div>
         )}
 
-        {/* AJUSTES */}
+        {/* CONTENIDO: AJUSTES GLOBALES */}
         {activeTab === 'settings' && (
             <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-zinc-800">
                 {/* Mapa */}
