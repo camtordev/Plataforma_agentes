@@ -1,34 +1,27 @@
 # backend/app/agents/base.py
 
 class Agent:
-    def __init__(self, id, x, y, color="#ffffff"):
-        self.id = id
+    # --- CAMBIO IMPORTANTE: Añadimos **kwargs al final ---
+    def __init__(self, agent_id: str, x: int, y: int, **kwargs):
+        self.id = agent_id
         self.x = x
         self.y = y
-        self.color = color
-        self.energy = 100
-        self.vision_radius = 5
+        self.energy = kwargs.get("initialEnergy", 100) # Usamos kwargs para energía si viene
+        self.color = kwargs.get("color", "#22d3ee")    # Usamos kwargs para color si viene
+        
+        # Guardamos la estrategia si nos la mandan (útil para agentes complejos)
+        self.strategy = kwargs.get("strategy", None)
 
-    def perceive(self, world_state):
-        """
-        El agente recibe el estado completo y filtra lo que puede ver.
-        Por defecto, ve todo.
-        """
-        return world_state
-
-    def decide_move(self, world_state):
-        """
-        Lógica vacía. Los hijos (Reactive, Goal, etc.) deben sobrescribir esto.
-        Devuelve (dx, dy).
-        """
-        return (0, 0) 
-
+    def decide_move(self, world_state: dict):
+        # Lógica por defecto (moverse random o quedarse quieto)
+        return 0, 0
+        
     def to_dict(self):
-        """Serializa el agente para enviarlo al Frontend por JSON"""
         return {
             "id": self.id,
             "x": self.x,
             "y": self.y,
+            "energy": self.energy,
             "color": self.color,
-            "energy": self.energy
+            "type": self.__class__.__name__
         }

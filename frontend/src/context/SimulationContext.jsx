@@ -4,11 +4,14 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect, u
 const initialState = {
   isRunning: false,
   step: 0,
-  agents: [],      
-  food: [],        
-  obstacles: [],   
+  agents: [],       
+  food: [],         
+  obstacles: [],    
   gridConfig: { width: 25, height: 25, cellSize: 20 },
-  selectedTool: "agent",
+  
+  // Herramienta activa por defecto
+  selectedTool: "select", // 'select' | 'brush' | 'eraser' | 'multiselect'
+
   code: "",
 
   // Configuración del Agente a insertar
@@ -55,13 +58,15 @@ function simulationReducer(state, action) {
         // Si el backend dice que paró (por límite de pasos), actualizamos
         isRunning: action.payload.isRunning !== undefined ? action.payload.isRunning : state.isRunning,
 
-        // Sincronizar config si el backend la devuelve (para confirmar cambios)
+        // Sincronizar config si el backend la devuelve
         simulationConfig: action.payload.config ? { ...state.simulationConfig, ...action.payload.config } : state.simulationConfig
       };
 
     case "START_SIMULATION": return { ...state, isRunning: true };
     case "STOP_SIMULATION": return { ...state, isRunning: false };
-    case "SET_TOOL": return { ...state, selectedTool: action.tool };
+    
+    // Actualizar herramienta seleccionada
+    case "SET_TOOL": return { ...state, selectedTool: action.payload };
     
     case "SET_AGENT_CONFIG":
       return { ...state, agentConfig: { ...state.agentConfig, ...action.payload } };
@@ -82,18 +87,23 @@ export function SimulationProvider({ children }) {
   const [state, dispatch] = useReducer(simulationReducer, initialState);
   const socketRef = useRef(null); // Referencia única al WebSocket
 
-  // --- CONEXIÓN WEBSOCKET CENTRALIZADA ---
+  // --- CONEXIÓN WEBSOCKET CENTRALIZADA (CORREGIDA) ---
   useEffect(() => {
-    // URL del Backend
     const WS_URL = "ws://localhost:8000/ws/simulacion";
     
-    socketRef.current = new WebSocket(WS_URL);
+    // Si ya existe una conexión abierta, no creamos otra (evita duplicados en modo desarrollo)
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        return; 
+    }
 
-    socketRef.current.onopen = () => {
+    const ws = new WebSocket(WS_URL);
+    socketRef.current = ws;
+
+    ws.onopen = () => {
         console.log("✅ [Context] WebSocket Conectado");
     };
 
-    socketRef.current.onmessage = (event) => {
+    ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         // Manejo del formato nuevo
@@ -105,17 +115,23 @@ export function SimulationProvider({ children }) {
       }
     };
 
-    socketRef.current.onclose = () => console.log("🔌 [Context] WebSocket Desconectado");
-
-    return () => {
-      if (socketRef.current) socketRef.current.close();
+    ws.onclose = () => console.log("🔌 [Context] WebSocket Desconectado");
+    
+    ws.onerror = (error) => {
+        console.error("⚠️ Error en WebSocket:", error);
     };
-  }, []);
+
+    // Función de limpieza al desmontar
+    return () => {
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+      }
+    };
+  }, []); // Solo corre al montar
 
   // --- FUNCIÓN PARA ENVIAR (Accesible globalmente) ---
   const sendMessage = useCallback((msg) => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        console.log("📤 [Front->Back]:", msg.type, msg.data || ""); 
         socketRef.current.send(JSON.stringify(msg));
     } else {
         console.warn("⚠️ Socket no listo para enviar:", msg);
@@ -129,10 +145,9 @@ export function SimulationProvider({ children }) {
   }, [sendMessage]);
 
   const setSelectedTool = useCallback((tool) => {
-    dispatch({ type: "SET_TOOL", tool });
+    dispatch({ type: "SET_TOOL", payload: tool });
   }, []);
 
-  // Función auxiliar para actualizar config localmente y enviar al back
   const updateWorldState = useCallback((data) => {
     dispatch({ type: "UPDATE_WORLD", payload: data });
   }, []);
@@ -146,9 +161,9 @@ export function SimulationProvider({ children }) {
       obstacles: state.obstacles,
       step: state.step
     },
-    sendMessage,     // <--- EXPORTAMOS LA FUNCIÓN DE ENVÍO
+    sendMessage,     
     setIsRunning,
-    setSelectedTool,
+    setSelectedTool, 
     updateWorldState,
     dispatch
   };

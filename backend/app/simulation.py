@@ -35,7 +35,7 @@ class SimulationEngine:
         """
         Actualiza la configuración y muestra logs para depuración.
         """
-        print(f"🔧 RECIBIENDO CONFIG: {config}") # <-- DEBUG LOG
+        print(f"🔧 RECIBIENDO CONFIG: {config}") 
         
         if "maxSteps" in config:
             try:
@@ -56,22 +56,67 @@ class SimulationEngine:
             spd = float(config["speed"])
             if spd > 0: self.speed = 0.5 / spd
 
-    def add_agent(self, x: int, y: int, agent_type: str = "reactive", **kwargs):
+    # --- MÉTODO CORREGIDO: Acepta config explícitamente ---
+    def add_agent(self, x: int, y: int, agent_type: str = "reactive", strategy: str = "bfs", config: Dict = None):
         if not self._is_occupied(x, y):
             new_id = f"agent_{len(self.agents)}"
             try:
-                agent = AgentFactory.create_agent(agent_type, new_id, x, y, **kwargs)
+                # Creamos el agente
+                agent = AgentFactory.create_agent(agent_type, new_id, x, y, strategy=strategy)
+                
+                # APLICAMOS LA CONFIGURACIÓN DEL FRONTEND (Si existe)
+                if config:
+                    if "color" in config:
+                        agent.color = config["color"]
+                    if "initialEnergy" in config:
+                        agent.energy = int(config["initialEnergy"])
+                    if "speed" in config:
+                        agent.speed = int(config["speed"])
+                    if "visionRadius" in config:
+                        if hasattr(agent, "vision_radius"):
+                            agent.vision_radius = int(config["visionRadius"])
+
                 self.agents.append(agent)
             except ValueError as e:
                 print(f"Error creating agent: {e}")
 
-    def add_food(self, x: int, y: int):
+    # --- MÉTODO CORREGIDO: Ahora acepta config ---
+    def add_food(self, x: int, y: int, food_type: str = "food", config: Dict = None):
         if not self._is_occupied(x, y):
-            self.food.append({"x": x, "y": y, "id": f"food_{len(self.food)}"})
+            food_item = {
+                "x": x,
+                "y": y,
+                "id": f"food_{len(self.food)}",
+                # GUARDAMOS EL TIPO: "food" (Manzana) o "energy" (Rayo)
+                "type": food_type 
+            }
+            
+            # Aplicar valor nutricional
+            if config and "nutritionValue" in config:
+                try:
+                    food_item["value"] = int(config["nutritionValue"])
+                except:
+                    food_item["value"] = 20
+            else:
+                food_item["value"] = 20
 
-    def add_obstacle(self, x: int, y: int):
+            self.food.append(food_item)
+    # --- MÉTODO CORREGIDO: Ahora acepta config ---
+    def add_obstacle(self, x: int, y: int, config: Dict = None):
         if not self._is_occupied(x, y):
-            self.obstacles.append({"x": x, "y": y})
+            obs_item = {"x": x, "y": y}
+            
+            # Aplicar destructibilidad
+            if config:
+                if "isDestructible" in config:
+                    obs_item["destructible"] = bool(config["isDestructible"])
+                if "destructionCost" in config:
+                    try:
+                        obs_item["cost"] = int(config["destructionCost"])
+                    except:
+                        obs_item["cost"] = 5
+            
+            self.obstacles.append(obs_item)
 
     def remove_at(self, x: int, y: int):
         self.agents = [a for a in self.agents if not (a.x == x and a.y == y)]
@@ -91,14 +136,11 @@ class SimulationEngine:
         """Ciclo principal de la simulación."""
         
         # 1. VERIFICACIÓN INICIAL DE LÍMITES
-        # Si NO es ilimitado Y ya pasamos los pasos -> Detener
         if not self.is_unlimited and self.step_count >= self.max_steps:
             self.is_running = False
             return
 
-        # Si detener al acabar comida está activo Y no hay comida -> Detener
         if self.stop_on_food and len(self.food) == 0 and len(self.agents) > 0:
-            # (Agregamos len(agents)>0 para que no se pare si apenas estamos construyendo el mapa)
             self.is_running = False
             return
 
@@ -128,23 +170,31 @@ class SimulationEngine:
                     break
             
             if not collision:
-                agent.x = new_x
-                agent.y = new_y
-                agent.energy -= 0.5
+                # Verificar colisión con otros agentes
+                agent_collision = False
+                for other in self.agents:
+                    if other.id != agent.id and other.x == new_x and other.y == new_y:
+                        agent_collision = True
+                        break
+                
+                if not agent_collision:
+                    agent.x = new_x
+                    agent.y = new_y
+                    agent.energy -= 0.5
             else:
                 agent.energy -= 0.1
 
             for f in self.food[:]:
                 if f['x'] == agent.x and f['y'] == agent.y:
-                    agent.energy = min(100, agent.energy + 20)
+                    # Usamos el valor nutricional del objeto comida
+                    energy_gain = f.get("value", 20)
+                    agent.energy = min(150, agent.energy + energy_gain) # Tope de energía
                     self.food.remove(f)
 
         # 2. VERIFICACIÓN FINAL POST-MOVIMIENTO
-        # ¿Se acabó la comida en este turno?
         if self.stop_on_food and len(self.food) == 0 and len(self.agents) > 0:
             self.is_running = False
 
-        # ¿Llegamos al límite?
         if not self.is_unlimited and self.step_count >= self.max_steps:
             self.is_running = False
 
@@ -160,7 +210,6 @@ class SimulationEngine:
                 "width": self.width,
                 "height": self.height,
                 "isRunning": self.is_running,
-                # Enviamos la config de vuelta para verificar sincronización
                 "config": {
                     "maxSteps": self.max_steps,
                     "isUnlimited": self.is_unlimited,
