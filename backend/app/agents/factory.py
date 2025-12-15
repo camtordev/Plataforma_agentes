@@ -1,31 +1,54 @@
-from .base import Agent
-from .reactive import ReactiveAgent
-# Asegúrate de importar tus otras clases si existen (GoalBased, etc)
-# from .goal_based import GoalBasedAgent 
+from .models import Agent
 
 class AgentFactory:
     @staticmethod
     def create_agent(agent_type: str, agent_id: str, x: int, y: int, **kwargs) -> Agent:
-        print(f"🏭 Factory: Creando agente tipo '{agent_type}' en ({x}, {y})") # DEBUG LOG
+        """
+        Crea una instancia de agente basada en el tipo solicitado.
+        """
+        # Normalizamos el tipo a minúsculas
+        type_key = agent_type.lower()
+        
+        # Creamos el agente base
+        new_agent = Agent(agent_id, x, y)
+        
+        # Asignamos el tipo explícitamente para que el SimulationEngine sepa qué lógica usar
+        new_agent.type = type_key
+        
+        # Asignamos la estrategia si viene en los argumentos (para Planificadores)
+        if "strategy" in kwargs:
+            new_agent.strategy = kwargs["strategy"]
 
-        # Normalizamos a minúsculas para evitar errores de tipeo
-        atype = agent_type.lower()
-
-        try:
-            # Mapeo de tipos del frontend a clases de Python
-            if atype in ["reactive", "explorer", "collector"]:
-                # Por ahora usamos ReactiveAgent para todos si no tienes las clases específicas creadas
-                # Si tienes clase ExplorerAgent, úsala aquí: return ExplorerAgent(agent_id, x, y, **kwargs)
-                return ReactiveAgent(agent_id, x, y, **kwargs)
+        # Configuración específica por tipo (Valores por defecto del Backend)
+        # Nota: Estos pueden ser sobrescritos por la configuración que manda el Frontend
+        
+        if type_key == "reactive":
+            new_agent.vision_radius = 1
             
-            elif atype == "pro":
-                # return GoalBasedAgent(agent_id, x, y, **kwargs)
-                pass
+        elif type_key == "explorer":
+            new_agent.vision_radius = 5
+            new_agent.visited = set() # Memoria
             
-            # DEFAULT: Si no reconoce el tipo, crea uno Reactivo básico
-            print(f"⚠️ Tipo '{agent_type}' no reconocido, usando ReactiveAgent por defecto.")
-            return ReactiveAgent(agent_id, x, y, **kwargs)
+        elif type_key == "collector":
+            new_agent.vision_radius = 10
+            # Strategy ya se asignó arriba si venía en kwargs
+            
+        elif type_key == "cooperative":
+            new_agent.vision_radius = 5
+            new_agent.inbox = [] # Buzón de mensajes
+            
+        elif type_key == "competitive":
+            new_agent.vision_radius = 8
+            
+        elif type_key == "q_learning":
+            new_agent.vision_radius = 3
+            # Inicializamos tabla Q vacía o parámetros de RL
+            new_agent.epsilon = 0.1
+            new_agent.alpha = 0.5
+            new_agent.gamma = 0.9
 
-        except Exception as e:
-            print(f"❌ Error fatal en Factory creando agente: {e}")
-            raise e
+        # Si no reconocemos el tipo, lo dejamos como genérico (reactive)
+        else:
+            new_agent.type = "reactive"
+
+        return new_agent
