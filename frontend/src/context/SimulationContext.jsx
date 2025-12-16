@@ -1,15 +1,24 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from "react";
+// --- NUEVO: Importamos el generador de plantillas ---
+import { getTemplate } from "../templates/agentTemplates"; 
 
 // 1. Estado Inicial
 const initialState = {
   isRunning: false,
   step: 0,
-  agents: [],      
-  food: [],        
-  obstacles: [],   
+  agents: [],       
+  food: [],         
+  obstacles: [],    
   gridConfig: { width: 25, height: 25, cellSize: 20 },
-  selectedTool: "agent",
+  
+  // Herramienta activa por defecto
+  selectedTool: "select", 
+
   code: "",
+
+  // --- NUEVO: Estado para la plantilla seleccionada ---
+  // Inicializamos con la plantilla reactiva por defecto para que el panel no salga vacío
+  selectedTemplate: getTemplate('reactive'),
 
   // Configuración del Agente a insertar
   agentConfig: {
@@ -52,17 +61,22 @@ function simulationReducer(state, action) {
             height: action.payload.height || state.gridConfig.height
         },
         
-        // Si el backend dice que paró (por límite de pasos), actualizamos
+        // Si el backend dice que paró, actualizamos
         isRunning: action.payload.isRunning !== undefined ? action.payload.isRunning : state.isRunning,
 
-        // Sincronizar config si el backend la devuelve (para confirmar cambios)
+        // Sincronizar config si el backend la devuelve
         simulationConfig: action.payload.config ? { ...state.simulationConfig, ...action.payload.config } : state.simulationConfig
       };
 
     case "START_SIMULATION": return { ...state, isRunning: true };
     case "STOP_SIMULATION": return { ...state, isRunning: false };
-    case "SET_TOOL": return { ...state, selectedTool: action.tool };
     
+    // Actualizar herramienta seleccionada
+    case "SET_TOOL": return { ...state, selectedTool: action.payload };
+    
+    // --- NUEVO: Actualizar la plantilla actual ---
+    case "SET_TEMPLATE": return { ...state, selectedTemplate: action.payload };
+
     case "SET_AGENT_CONFIG":
       return { ...state, agentConfig: { ...state.agentConfig, ...action.payload } };
 
@@ -80,23 +94,26 @@ const SimulationContext = createContext(null);
 // 4. Provider
 export function SimulationProvider({ children }) {
   const [state, dispatch] = useReducer(simulationReducer, initialState);
-  const socketRef = useRef(null); // Referencia única al WebSocket
+  const socketRef = useRef(null); 
 
   // --- CONEXIÓN WEBSOCKET CENTRALIZADA ---
   useEffect(() => {
-    // URL del Backend
     const WS_URL = "ws://localhost:8000/ws/simulacion";
     
-    socketRef.current = new WebSocket(WS_URL);
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        return; 
+    }
 
-    socketRef.current.onopen = () => {
+    const ws = new WebSocket(WS_URL);
+    socketRef.current = ws;
+
+    ws.onopen = () => {
         console.log("✅ [Context] WebSocket Conectado");
     };
 
-    socketRef.current.onmessage = (event) => {
+    ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        // Manejo del formato nuevo
         if (message.type === "WORLD_UPDATE") {
             dispatch({ type: "UPDATE_WORLD", payload: message.data });
         }
@@ -105,34 +122,45 @@ export function SimulationProvider({ children }) {
       }
     };
 
-    socketRef.current.onclose = () => console.log("🔌 [Context] WebSocket Desconectado");
+    ws.onclose = () => console.log("🔌 [Context] WebSocket Desconectado");
+    
+    ws.onerror = (error) => {
+        console.error("⚠️ Error en WebSocket:", error);
+    };
 
     return () => {
-      if (socketRef.current) socketRef.current.close();
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+      }
     };
-  }, []);
+  }, []); 
 
-  // --- FUNCIÓN PARA ENVIAR (Accesible globalmente) ---
+  // --- FUNCIÓN PARA ENVIAR ---
   const sendMessage = useCallback((msg) => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        console.log("📤 [Front->Back]:", msg.type, msg.data || ""); 
         socketRef.current.send(JSON.stringify(msg));
     } else {
         console.warn("⚠️ Socket no listo para enviar:", msg);
     }
   }, []);
 
-  // Helpers
+  // --- NUEVO HELPER: Cambiar Plantilla por Tipo ---
+  // Esta función encapsula la lógica de buscar la plantilla y despachar la acción
+  const setTemplateByType = useCallback((type, params = {}) => {
+    const template = getTemplate(type, params);
+    dispatch({ type: "SET_TEMPLATE", payload: template });
+  }, []);
+
+  // Helpers existentes
   const setIsRunning = useCallback((isRunning) => {
     dispatch({ type: isRunning ? "START_SIMULATION" : "STOP_SIMULATION" });
     sendMessage({ type: isRunning ? "START" : "STOP" });
   }, [sendMessage]);
 
   const setSelectedTool = useCallback((tool) => {
-    dispatch({ type: "SET_TOOL", tool });
+    dispatch({ type: "SET_TOOL", payload: tool });
   }, []);
 
-  // Función auxiliar para actualizar config localmente y enviar al back
   const updateWorldState = useCallback((data) => {
     dispatch({ type: "UPDATE_WORLD", payload: data });
   }, []);
@@ -146,9 +174,13 @@ export function SimulationProvider({ children }) {
       obstacles: state.obstacles,
       step: state.step
     },
-    sendMessage,     // <--- EXPORTAMOS LA FUNCIÓN DE ENVÍO
+    // Nuevos valores expuestos
+    selectedTemplate: state.selectedTemplate,
+    setTemplateByType, 
+    
+    sendMessage,     
     setIsRunning,
-    setSelectedTool,
+    setSelectedTool, 
     updateWorldState,
     dispatch
   };

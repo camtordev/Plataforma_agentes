@@ -66,9 +66,10 @@ Estructura de Archivos del Backend (Python/FastAPI)
 backend/
 ├── app/
 |    ├── agents/                  # 🧠 LÓGICA DE AGENTES (Jerarquía de Clases)
-│   ├── __init__.py
+│   ├── __init__.py             Para exponer los módulos
+    ├── models.py             # Clase 'Agent' base (estado, memoria, inbox, q_table)
 │   ├── base.py              # Clase abstracta 'Agent' (x, y, energy)
-│   ├── factory.py           # Patrón Factory para instanciar agentes dinámicamente
+│   └── factory.py            #Factory actualizado para crear Reactive, Explorer, Coop, RL, etc.
 │   ├── reactive.py          # Agente simple (estímulo-respuesta)
 │   ├── goal_based.py        # Agente complejo (planificación)
 │   ├── model_based.py       # Agente con memoria del mundo
@@ -84,6 +85,7 @@ backend/
 │   │   │   │   ├── projects.py      # Guardado/Carga de proyectos [cite: 96]
 │   │   │   │   ├── tutorials.py     # Gestión de niveles pedagógicos [cite: 73]
 │   │   │   │   └── analysis.py      # Endpoints para gráficas y stats [cite: 113]
+                ├── simulation_ws.py  # Endpoint WebSocket blindado contra desconexiones
 │   │   │   └── api.py
 │   │   └── deps.py                  # Dependencias (DB session, Current User)
 │   │
@@ -112,15 +114,20 @@ backend/
 │   │   │   └── loop.py              # Loop asíncrono principal
 │   │   │
 │   │   └── sandbox/                 # Ejecución Segura 
-│   │       ├── docker_client.py     # Conexión con contenedores
-│   │       └── code_parser.py       # Validación estática antes de ejecutar
+│   │   |    ├── docker_client.py     # Conexión con contenedores
+│   │   |    └── code_parser.py       # Validación estática antes de ejecutar
+        |
+│   │   └── game_instance.py      # Singleton para mantener la instancia del engine en memoria
 │   │
 │   ├── websockets/                  # Comunicación Tiempo Real 
-│   │   ├── connection_manager.py    # Maneja salas (rooms) para colaborativo
-│   │   └── events.py                # Rutas del socket (connect, move, update)
+│   │   ├── connection_manager.py    # Manejo de broadcast con try/except para evitar crasheos
+│   │   └── events.py                # Procesador de comandos (START, PAUSE, ADD_AGENT)
 │   │
 │   └── main.py                      # Punto de entrada (FastAPI, rutas WebSocket)
-|    └── simulation.py            # MOTOR DE FÍSICA (Loop, reglas, validación, estado global)    
+|    └── simulation.py            # [REFACTORIZADO] EL MOTOR PRINCIPAL. Contiene:
+│   │                             # 1. Loop 'step' (Física y Reglas)
+│   │                             # 2. Dispatcher de IA (_get_agent_decision)
+│   │                             # 3. Integración con Pathfinding y Factory    
 ├── alembic/                         # Migraciones de Base de Datos
 ├── tests/
 ├── requirements.txt
@@ -201,43 +208,67 @@ Puntos Clave del Frontend:
 
 
 
-Flujo de Datos (Cómo se conectan)
-Para cumplir el RF2 (Motor de Simulación):
+Explicación de la Lógica del Sistema
+1. Arquitectura General
+El sistema es un Simulador de Agentes Educativo basado en un patrón cliente-servidor en tiempo real.
 
-Inicio: El usuario da click en "Play" en Toolbar.jsx.
+Frontend (React): Actúa como "Visualizador" y "Controlador". No corre la lógica de la simulación, solo renderiza el estado (worldState) y envía comandos.
 
-Envío: CodeEditor.jsx envía el código Python actual a través de una petición POST a FastAPI.
+Backend (FastAPI): Es la fuente de verdad. Mantiene el estado del mundo, ejecuta el bucle de simulación (step) y resuelve conflictos.
 
-Procesamiento: FastAPI valida el código en services/sandbox e inicia un "Game Loop" en services/engine.
+2. El Ciclo de Vida del Agente (Factory Pattern)
+Cuando el usuario arrastra un agente al grid:
 
-Bucle (60 veces por segundo):
+Frontend: Envía un comando ADD_AGENT con un payload { type: "explorer", strategy: "bfs" }.
 
-El Backend calcula las nuevas posiciones (x, y) y gasto de energía.
+Backend: AgentFactory recibe el string, crea una instancia de la clase Agent (definida en models.py) y le inyecta atributos específicos (ej. agent.visited = set() si es explorador).
 
-El Backend emite un evento WebSocket: { type: "WORLD_UPDATE", data: [ {id:1, x:10, y:5}, ... ] }.
+Identidad: El agente recibe el atributo agent.type. Este string es la clave que une la lógica de ejecución del backend con la plantilla visual del frontend.
 
-Recepción: En el Frontend, useSocket.js recibe el JSON.
+3. El Cerebro del Agente (Dispatcher Pattern)
+En simulation.py, evitamos el uso de un bloque if/else gigante dentro del bucle principal step.
 
+Estrategia: Se usa un diccionario de dispatching: strategies = { "explorer": self._logic_explorer, ... }.
 
-Renderizado: GridCanvas.jsx lee los nuevos datos y mueve los sprites de los agentes suavemente usando interpolación.
+Ejecución: En cada tick, el motor busca la función correspondiente al agent.type y la ejecuta.
 
-📡 Protocolo de Comunicación (WebSocket)El sistema se comunica mediante mensajes JSON estrictos. Si estás programando una IA o un bot para interactuar con este sistema, usa este protocolo.1. Del Servidor al Cliente (WORLD_UPDATE)El backend envía esto cada vez que el mundo cambia (por un step o una acción del usuario).JSON{
-  "type": "WORLD_UPDATE",
-  "data": {
-    "step": 42,
-    "width": 50,
-    "height": 50,
-    "isRunning": true,
-    "agents": [
-      { "id": "agent_0", "x": 10, "y": 5, "type": "reactive", "energy": 80 }
-    ],
-    "food": [{ "x": 15, "y": 20, "id": "food_0" }],
-    "obstacles": [{ "x": 5, "y": 5 }],
-    "config": {
-        "maxSteps": 100,
-        "isUnlimited": false,
-        "stopOnFood": true
-    }
-  }
-}
-2. Del Cliente al Servidor (Comandos)Estos son los comandos que el Frontend envía para controlar la simulación:Comando (type)Payload (data)DescripciónSTART{}Inicia el bucle de simulación.STOP{}Detiene el bucle.STEP{}Avanza un único paso manualmente.RESET{}Limpia agentes y comida, mantiene configuración.RESIZE_GRID{ "width": 50, "height": 50 }Redimensiona el mapa y resetea entidades.UPDATE_CONFIG{ "maxSteps": 200, "stopOnFood": false }Actualiza reglas de parada y límites.ADD_AGENT{ "x": 10, "y": 10, "agent_type": "goal_based", "strategy": "astar" }Crea un agente en la posición dada.ADD_FOOD{ "x": 5, "y": 5 }Añade comida.🔄 Flujo de Ejecución (Ejemplo: Drag & Drop)Usuario: Arrastra un agente "Basado en Objetivos" al Grid en el Frontend.Frontend (Sidebar.jsx): Detecta el evento drop, captura las coordenadas y llama a sendMessage.Envía: { "type": "ADD_AGENT", "data": { "x": 5, "y": 5, "agent_type": "goal_based", "strategy": "astar" } }Backend (main.py): Recibe el JSON y enruta al SimulationEngine.Backend (simulation.py): Llama a AgentFactory para crear la instancia Python correcta y la añade a la lista self.agents.Backend: Responde inmediatamente con el nuevo estado (WORLD_UPDATE).Frontend (SimulationContext): Recibe el estado actualizado y React vuelve a pintar el Grid con el nuevo agente.
+Input: Estado del mundo (snapshot de solo lectura para evitar modificaciones directas).
+
+Output: Intención de movimiento (dx, dy).
+
+Pathfinding: Los agentes "inteligentes" delegan el cálculo matemático de rutas al módulo estático Pathfinding.py.
+
+4. Sistema de Binding Educativo (Frontend-Only)
+Para cumplir el objetivo pedagógico sin exponer la complejidad real:
+
+Realidad: Los agentes en el Backend ejecutan código Python complejo optimizado.
+
+Espejo: El Frontend tiene una copia estática y simplificada de ese código en agentTemplates.js.
+
+Vinculación: Cuando el usuario hace clic en un agente (en el Canvas o Sidebar), el Frontend busca el type del agente y carga el string de texto correspondiente en el RightPanel.
+
+Ilusión: El usuario cree que está viendo el código "vivo" del agente, aunque en realidad ve una plantilla educativa que explica el comportamiento que el Backend está ejecutando.
+
+5. Separación Fase 1 (Decisión) vs Fase 2 (Física)
+El motor (step) sigue un orden estricto para evitar bugs de concurrencia y condiciones de carrera:
+
+Snapshot: Crea una copia de los datos actuales del mundo.
+
+Decisión: Todos los agentes "piensan" (_get_agent_decision) basándose en ese snapshot. Nadie se mueve aún.
+
+Física: El motor aplica los movimientos secuencialmente, resolviendo colisiones (si A va a X y X está ocupado -> A se queda quieto o choca).
+
+Interacción: Finalmente, se procesa la recolección de comida y la mensajería.
+
+6. Comunicación en Tiempo Real (WebSocket Blindado)
+La conexión WebSocket se diseñó para ser resiliente a desconexiones y reinicios rápidos (Hot Reload):
+
+Frontend (Singleton Ref): Usamos useRef en el SimulationContext para garantizar que solo exista una única conexión activa incluso si React remonta componentes. Esto evita duplicidad de eventos.
+
+Backend (Safe Broadcast): El ConnectionManager implementa un mecanismo de "iteración sobre copia" (active_connections[:]) con manejo de errores try/except.
+
+Antes: Si un cliente cerraba el navegador mientras el servidor enviaba datos, el servidor colapsaba.
+
+Ahora: Si el envío falla, el servidor captura la excepción, elimina silenciosamente la conexión muerta de la lista y el bucle de simulación continúa sin interrupciones.
+
+Sincronización de Estado: El servidor envía un evento WORLD_UPDATE con el estado completo. El Reducer de React (UPDATE_WORLD) reemplaza el estado local con el del servidor, asegurando que el Frontend siempre sea un reflejo exacto del Backend (Single Source of Truth).
