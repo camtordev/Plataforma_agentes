@@ -221,6 +221,15 @@ export default function TutorialLevelModal({
                     </ul>
                   </div>
                 ))}
+                
+                {level.diagram?.ascii && (
+                  <div className="lg:col-span-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                    <div className="text-white font-bold mb-2">{level.diagram.title || "Diagrama"}</div>
+                    <pre className="text-xs text-zinc-200 bg-zinc-950 border border-zinc-800 rounded-lg p-3 overflow-auto whitespace-pre">
+                      {level.diagram.ascii}
+                    </pre>
+                  </div>
+                )}
 
                 <div className="lg:col-span-3 grid lg:grid-cols-2 gap-4">
                   <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
@@ -250,7 +259,10 @@ export default function TutorialLevelModal({
                   </div>
                 </div>
               </div>
+              
             )}
+
+
 
             {/* PRÁCTICA */}
             {tab === "PRACTICA" && (
