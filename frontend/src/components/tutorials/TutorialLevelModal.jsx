@@ -221,7 +221,7 @@ export default function TutorialLevelModal({
                     </ul>
                   </div>
                 ))}
-                
+
                 {level.diagram?.ascii && (
                   <div className="lg:col-span-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4">
                     <div className="text-white font-bold mb-2">{level.diagram.title || "Diagrama"}</div>
@@ -230,6 +230,83 @@ export default function TutorialLevelModal({
                     </pre>
                   </div>
                 )}
+                {level.observationCard && (
+                  <div className="lg:col-span-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                    <div className="text-white font-bold mb-2">{level.observationCard.title || "Observation"}</div>
+                    {level.observationCard.description && (
+                      <p className="text-sm text-zinc-400 mb-3">{level.observationCard.description}</p>
+                    )}
+
+                    {level.observationCard.fields?.length > 0 && (
+                      <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 mb-3">
+                        <div className="text-xs text-zinc-500 mb-2">Campos</div>
+                        <ul className="list-disc pl-5 text-zinc-300 space-y-1">
+                          {level.observationCard.fields.map((f, i) => (
+                            <li key={i}>
+                              <span className="text-zinc-100 font-semibold">{f.name}</span>:{" "}
+                              <span className="text-zinc-400">{f.type}</span> — {f.meaning}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {level.observationCard.example && (
+                      <pre className="text-xs text-zinc-200 bg-zinc-950 border border-zinc-800 rounded-lg p-3 overflow-auto whitespace-pre">
+                        {level.observationCard.example}
+                      </pre>
+                    )}
+
+                    {level.observationCard.notes?.length > 0 && (
+                      <div className="mt-3 text-sm text-zinc-400">
+                        <div className="text-zinc-200 font-semibold mb-1">Notas</div>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {level.observationCard.notes.map((n, i) => (
+                            <li key={i}>{n}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* CHECKLIST (si existe) */}
+                {level.checklist?.length > 0 && (
+                  <div className="lg:col-span-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                    <div className="text-white font-bold mb-2">Checklist antes de avanzar</div>
+                    <ul className="list-disc pl-5 text-zinc-300 space-y-1">
+                      {level.checklist.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* MINI EJERCICIO GUIADO (si existe) */}
+                {level.guidedExercise && (
+                  <div className="lg:col-span-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                    <div className="text-white font-bold mb-2">{level.guidedExercise.title || "Mini ejercicio guiado"}</div>
+                    {level.guidedExercise.goal && (
+                      <p className="text-sm text-zinc-400 mb-3">{level.guidedExercise.goal}</p>
+                    )}
+
+                    {level.guidedExercise.steps?.length > 0 && (
+                      <ol className="list-decimal pl-5 text-zinc-300 space-y-1">
+                        {level.guidedExercise.steps.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ol>
+                    )}
+
+                    {level.guidedExercise.quickCheck && (
+                      <div className="mt-3 bg-zinc-950 border border-zinc-800 rounded-lg p-3">
+                        <div className="text-xs text-zinc-500 mb-1">Auto-check rápido</div>
+                        <div className="text-sm text-zinc-200">{level.guidedExercise.quickCheck}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
 
                 <div className="lg:col-span-3 grid lg:grid-cols-2 gap-4">
                   <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">

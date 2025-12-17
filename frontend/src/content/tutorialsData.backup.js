@@ -1,4 +1,4 @@
-﻿// frontend/src/content/tutorialsData.js
+// frontend/src/content/tutorialsData.js
 
 export const TUTORIAL_LEVELS = [
   // =========================
@@ -342,10 +342,10 @@ def decidir_y_actuar(percepcion):
   {
     id: "lvl-3",
     level: 3,
-    title: "Agentes con Estado Interno: Memoria y Exploración",
+    title: "Agente con memoria: evitar repetir celdas",
     summary:
-      "Implementa agentes con memoria interna para evitar loops. Aprende a usar estructuras de datos (set) para rastrear posiciones visitadas y mejorar la exploración del entorno.",
-    estimatedMinutes: 22,
+      "Agrega estado interno (visitados) para reducir loops y explorar mejor.",
+    estimatedMinutes: 20,
 
     diagram: {
       title: "Diagrama: actualización con memoria",
@@ -482,10 +482,10 @@ def decidir_y_actuar(percepcion):
   {
     id: "lvl-4",
     level: 4,
-    title: "Agentes Basados en Objetivos: Planificación con BFS",
+    title: "Planificación: BFS para encontrar caminos",
     summary:
-      "Implementa agentes que planifican secuencias de acciones para alcanzar objetivos. Aprende el algoritmo BFS (Breadth-First Search) para encontrar caminos óptimos en grids y ejecutar planes paso a paso.",
-    estimatedMinutes: 28,
+      "Planifica una ruta hacia un objetivo en grid usando BFS (deque) y ejecuta un plan paso a paso.",
+    estimatedMinutes: 26,
 
     diagram: {
       title: "Diagrama: agente basado en objetivos con BFS",
@@ -519,44 +519,34 @@ def decidir_y_actuar(percepcion):
       {
         title: "BFS (búsqueda en anchura) en un grid",
         bullets: [
-          "Algoritmo de búsqueda no informada que explora el grafo por niveles o capas.",
-          "Usa una cola FIFO (First-In-First-Out) implementada con collections.deque en Python.",
-          "Propiedades: completo (encuentra solución si existe), óptimo en grafos no ponderados.",
-          "Complejidad temporal: O(b^d) donde b=branching factor, d=profundidad de la solución.",
-          "En grids 2D: garantiza el camino con menor número de pasos cuando todos tienen costo 1.",
+          "Usa una cola (deque) para explorar por capas.",
+          "Si todas las acciones cuestan igual, BFS encuentra el camino más corto.",
+          "Requiere visitados para evitar ciclos.",
         ],
       },
       {
-        title: "Implementación de BFS en Grids",
+        title: "Cómo resolver la práctica",
         bullets: [
-          "1. Inicializar: cola con estado inicial, conjunto de visitados, diccionario de padres (opcional).",
-          "2. Loop principal: mientras cola no esté vacía, extraer con popleft().",
-          "3. Verificar objetivo: si nodo actual es el objetivo, reconstruir y retornar camino.",
-          "4. Expandir: generar vecinos válidos (4 u 8 direcciones), verificar límites y obstáculos.",
-          "5. Filtrar: solo agregar vecinos no visitados para evitar ciclos.",
-          "6. Encolar: agregar vecinos a la cola con append(), marcar como visitados.",
+          "Crea cola = deque([(x0,y0,[])]).",
+          "Mientras cola: pop izquierda (popleft).",
+          "Si llegaste: return camino.",
+          "Si no: agrega vecinos válidos y no visitados.",
         ],
       },
       {
-        title: "Patrones y Mejores Prácticas",
+        title: "Errores comunes",
         bullets: [
-          "✅ USAR: deque con popleft() para FIFO verdadero - O(1) vs O(n) de list.pop(0).",
-          "✅ USAR: set para visitados - búsqueda O(1) vs O(n) de listas.",
-          "✅ VALIDAR: límites del grid ANTES de agregar a la cola.",
-          "✅ ESTRUCTURA: tupla (x, y, camino) para mantener estado y recorrido juntos.",
-          "❌ EVITAR: usar list.pop(0) - convierte BFS en operación O(n).",
-          "❌ EVITAR: olvidar marcar como visitado - causa loops infinitos.",
+          "Usar append/pop en vez de popleft (terminas haciendo DFS).",
+          "Olvidar visitados y caer en loop.",
+          "No validar límites/obstáculos antes de encolar.",
         ],
       },
     ],
 
     glossary: [
-      { term: "Plan", def: "Secuencia ordenada de acciones calculada para transitar desde el estado actual hasta el objetivo." },
-      { term: "BFS (Breadth-First Search)", def: "Algoritmo de búsqueda que explora el espacio de estados por niveles usando una cola FIFO." },
-      { term: "deque", def: "Estructura de datos de doble cola (double-ended queue) con O(1) para operaciones en ambos extremos." },
-      { term: "Completitud", def: "Propiedad de algoritmo que garantiza encontrar solución si existe." },
-      { term: "Optimalidad", def: "Propiedad de algoritmo que garantiza encontrar la mejor solución según alguna métrica." },
-      { term: "Frontera", def: "Conjunto de nodos generados pero aún no expandidos (la cola en BFS)." },
+      { term: "Plan", def: "Lista de acciones para ejecutar en orden." },
+      { term: "BFS", def: "Búsqueda en anchura; explora por capas." },
+      { term: "deque", def: "Cola eficiente para popleft()." },
     ],
 
     codeExampleTitle: "Ejemplo: estructura BFS",
@@ -639,10 +629,10 @@ def planificar_ruta(x0, y0, objetivo, entorno):
   {
     id: "lvl-5",
     level: 5,
-    title: "Búsqueda Informada: A* con Heurística Manhattan",
+    title: "Búsqueda informada: A* con heurística Manhattan",
     summary:
-      "Optimiza la búsqueda de caminos usando A*, un algoritmo informado que utiliza heurísticas. Aprende a implementar la distancia Manhattan y la función de evaluación f=g+h para búsquedas más eficientes que BFS.",
-    estimatedMinutes: 30,
+      "Aprende A*: prioriza nodos por f=g+h y usa Manhattan como heurística en grid.",
+    estimatedMinutes: 28,
 
     diagram: {
       title: "Diagrama: prioridad en A*",
@@ -671,7 +661,7 @@ def planificar_ruta(x0, y0, objetivo, entorno):
 
     theoryCards: [
       {
-        title: "Búsqueda Informada vs No Informada",
+        title: "Por qué A*",
         bullets: [
           "BFS puede expandir demasiados nodos.",
           "A* usa una heurística para buscar ‘hacia’ el objetivo.",
@@ -752,10 +742,10 @@ def astar(inicio, objetivo, entorno):
   {
     id: "lvl-6",
     level: 6,
-    title: "Sistemas Multi-Agente: Comunicación y Cooperación",
+    title: "Multi-agente: comunicación y cooperación",
     summary:
-      "Explora interacciones entre múltiples agentes. Implementa protocolos de comunicación para compartir información (ej: ubicación de recursos) y coordinar acciones hacia objetivos comunes.",
-    estimatedMinutes: 26,
+      "Implementa mensajes entre agentes para compartir información (p.ej. comida encontrada).",
+    estimatedMinutes: 24,
 
     diagram: {
       title: "Diagrama: cooperación por mensajes",
@@ -875,10 +865,10 @@ Agente A percibe comida
   {
     id: "lvl-7",
     level: 7,
-    title: "Competencia y Resolución de Conflictos",
+    title: "Competencia: recursos limitados y desempate",
     summary:
-      "Maneja escenarios competitivos con recursos limitados. Implementa mecanismos de desempate y estrategias para maximizar utilidad individual en entornos multi-agente competitivos.",
-    estimatedMinutes: 24,
+      "Cuando varios agentes quieren el mismo recurso, aplicas reglas de desempate (distancia e id).",
+    estimatedMinutes: 22,
 
     diagram: {
       title: "Diagrama: resolución de conflicto",
@@ -973,10 +963,10 @@ actuar       aplicar desempate:
   {
     id: "lvl-8",
     level: 8,
-    title: "Aprendizaje por Refuerzo: Q-Learning Básico",
+    title: "Aprendizaje por refuerzo: estructura de Q-Learning",
     summary:
-      "Introduce conceptos fundamentales de Reinforcement Learning. Implementa Q-Learning con tabla Q, epsilon-greedy exploration y la ecuación de Bellman para que agentes aprendan políticas óptimas mediante experiencia.",
-    estimatedMinutes: 35,
+      "Conecta recompensas con mejora de decisiones. Implementa estructura de Q-Table y ε-greedy.",
+    estimatedMinutes: 30,
 
     diagram: {
       title: "Diagrama: loop de entrenamiento (RL)",
@@ -1082,4 +1072,3 @@ def choose_action(state, eps=0.2):
     ],
   },
 ]
-
