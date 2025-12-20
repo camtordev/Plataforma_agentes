@@ -14,6 +14,7 @@ export const TUTORIAL_LEVELS = [
 
     diagram: {
       title: "Diagrama: ciclo del agente",
+      image: "/diagrams/flujoNivel1.jpeg",
       ascii: `
 +-------------------+
 |      ENTORNO       |
@@ -214,6 +215,7 @@ def act(observation):
 
     diagram: {
       title: "Diagrama: regla reactiva del limpiador",
+      image: "/diagrams/flujoNivel2.jpeg",
       ascii: `
           +------------------+
           | percibir suciedad|
@@ -349,6 +351,7 @@ def decidir_y_actuar(percepcion):
 
     diagram: {
       title: "Diagrama: actualización con memoria",
+      image: "/diagrams/flujoNivel3.jpeg",
       ascii: `
 +-------------------+
 | percibir entorno   |
@@ -489,6 +492,7 @@ def decidir_y_actuar(percepcion):
 
     diagram: {
       title: "Diagrama: agente basado en objetivos con BFS",
+      image: "/diagrams/flujoNivel4.png",
       ascii: `
 +------------------------+
 | ¿tengo plan? (camino)  |
@@ -646,6 +650,7 @@ def planificar_ruta(x0, y0, objetivo, entorno):
 
     diagram: {
       title: "Diagrama: prioridad en A*",
+      image: "/diagrams/flujoNivel5.jpeg",
       ascii: `
 +----------------------+
 | open_set (heap)      |
@@ -759,6 +764,7 @@ def astar(inicio, objetivo, entorno):
 
     diagram: {
       title: "Diagrama: cooperación por mensajes",
+      image: "/diagrams/flujoNivel6.png",
       ascii: `
 Agente A percibe comida
         |
@@ -882,6 +888,7 @@ Agente A percibe comida
 
     diagram: {
       title: "Diagrama: resolución de conflicto",
+      image: "/diagrams/flujoNivel7.jpeg",
       ascii: `
 Agentes eligen objetivo
          |
@@ -980,6 +987,7 @@ actuar       aplicar desempate:
 
     diagram: {
       title: "Diagrama: loop de entrenamiento (RL)",
+      image: "/diagrams/flujoNivel8.jpeg",
       ascii: `
 for episode in EPISODES:
     state = reset()
