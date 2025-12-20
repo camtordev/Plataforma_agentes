@@ -1,11 +1,9 @@
 "use client"
 import React, { useState } from "react"
 import { 
-  // Iconos existentes
   Bot, Apple, Box, Zap, Settings2, Shield, Eye, 
   Grid3x3, Clock, MousePointer2, Brush, Eraser, BoxSelect,
-  // NUEVOS ICONOS PARA LOS AGENTES
-  Activity, Users, Swords, BrainCircuit 
+  Activity, Users, Swords, BrainCircuit, TerminalSquare
 } from "lucide-react"
 import { useSimulation } from "../../context/SimulationContext"
 import PropertyConfigModal from "./PropertyConfigModal"
@@ -56,6 +54,12 @@ const INITIAL_ELEMENTS = [
     icon: BrainCircuit, color: "text-pink-400 bg-pink-500/10 border-pink-500/20",
     defaultConfig: { speed: 5, initialEnergy: 100, color: "#f472b6", epsilon: 0.1, alpha: 0.5, gamma: 0.9 }
   },
+  // 7. Agente Personalizado
+  { 
+    id: "agent-custom", type: "agent", subtype: "custom", label: "Personalizado", 
+    icon: TerminalSquare, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+    defaultConfig: { speed: 5, initialEnergy: 100, color: "#6366f1" }
+  },
 
   // --- RECURSOS Y OBSTÁCULOS ---
   { 
@@ -80,7 +84,7 @@ const INITIAL_ELEMENTS = [
   },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ onSelectElement }) { // Recibimos la prop del padre
   const [elementsList, setElementsList] = useState(INITIAL_ELEMENTS)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -90,7 +94,7 @@ export default function Sidebar() {
     gridConfig, simulationConfig, 
     dispatch, sendMessage, isRunning,
     selectedTool, setSelectedTool,
-    setTemplateByType // Extraemos la función para actualizar la plantilla
+    setTemplateByType 
   } = useSimulation()
 
   const handleDragStart = (e, element) => {
@@ -102,6 +106,15 @@ export default function Sidebar() {
 
     // ACTUALIZAR PLANTILLA AL ARRASTRAR
     setTemplateByType(element.subtype, element.defaultConfig);
+
+    // NOTIFICAR AL PADRE QUÉ ELEMENTO ESTAMOS USANDO (Para el pincel)
+    if (onSelectElement) {
+        onSelectElement({
+            type: element.type,
+            subtype: element.subtype,
+            config: element.defaultConfig
+        });
+    }
 
     e.dataTransfer.effectAllowed = "copy"
     const payload = {
@@ -188,7 +201,7 @@ export default function Sidebar() {
             <button onClick={() => setActiveTab('settings')} className={`flex-1 py-3 text-xs font-medium uppercase tracking-wide transition-colors ${activeTab === 'settings' ? 'text-blue-400 border-b-2 border-blue-500 bg-zinc-800/50' : 'text-zinc-500 hover:text-zinc-300'}`}>Ajustes</button>
         </div>
 
-        {/* CONTENIDO: ELEMENTOS (AGETNES, RECURSOS, OBSTACULOS) */}
+        {/* CONTENIDO: ELEMENTOS (AGENTES, RECURSOS, OBSTÁCULOS) */}
         {activeTab === 'elements' && (
             <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-zinc-800">
                 {['agent', 'resource', 'obstacle'].map(category => (
@@ -204,8 +217,17 @@ export default function Sidebar() {
                             <div
                                 draggable
                                 onDragStart={(e) => handleDragStart(e, element)}
-                                // ACTUALIZAR PLANTILLA AL HACER CLIC
-                                onClick={() => setTemplateByType(element.subtype, element.defaultConfig)}
+                                // ACTUALIZAR PLANTILLA Y PINCEL AL HACER CLIC
+                                onClick={() => {
+                                    setTemplateByType(element.subtype, element.defaultConfig);
+                                    if (onSelectElement) {
+                                        onSelectElement({
+                                            type: element.type,
+                                            subtype: element.subtype,
+                                            config: element.defaultConfig
+                                        });
+                                    }
+                                }}
                                 className={`flex-1 flex items-center gap-3 p-2.5 rounded-md border cursor-pointer active:cursor-grabbing transition-all hover:brightness-110 ${element.color} border-opacity-40 ${selectedTool === 'eraser' ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <Icon size={18} className="shrink-0" />
@@ -257,10 +279,22 @@ export default function Sidebar() {
                     <h3 className="font-semibold text-xs text-zinc-400 flex items-center gap-2 uppercase">
                         <Clock size={14}/> Límites
                     </h3>
+                    
                     <div className="flex items-center justify-between">
                         <label className="text-xs text-zinc-300">Pasos Ilimitados</label>
                         <input type="checkbox" checked={simulationConfig?.isUnlimited || false} onChange={(e) => handleSimConfigChange("isUnlimited", e.target.checked)} className="accent-blue-500 h-4 w-4 rounded border-zinc-700 bg-zinc-800" />
                     </div>
+
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs text-zinc-300" title="Detiene la simulación si se acaba la comida">Detener al terminar comida</label>
+                        <input 
+                            type="checkbox" 
+                            checked={simulationConfig?.stopOnFood !== false} 
+                            onChange={(e) => handleSimConfigChange("stopOnFood", e.target.checked)} 
+                            className="accent-blue-500 h-4 w-4 rounded border-zinc-700 bg-zinc-800" 
+                        />
+                    </div>
+
                     {!simulationConfig?.isUnlimited && (
                         <div>
                             <label className="text-xs text-zinc-500 block mb-1">Máximo de Pasos</label>

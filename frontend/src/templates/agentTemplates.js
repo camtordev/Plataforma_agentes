@@ -24,8 +24,8 @@ const TEMPLATES = {
             
         return Wait()`
   },
-  
-  explorer: { 
+
+  explorer: {
     title: "Agente Explorador (Memoria)",
     language: "python",
     description: "Mantiene un registro de las celdas visitadas para priorizar la exploración de terreno desconocido.",
@@ -51,7 +51,7 @@ const TEMPLATES = {
         return Move(to=random.choice(vecinos))`
   },
 
-  collector: { 
+  collector: {
     title: "Agente Planificador (Búsqueda)",
     language: "python",
     description: "Utiliza algoritmos de búsqueda (BFS, A*, etc.) para encontrar el camino óptimo hacia un objetivo global.",
@@ -140,6 +140,43 @@ const TEMPLATES = {
             return argmax(self.q_table[state]) # Explotar`
   },
 
+  custom: {
+    title: "Agente Personalizado",
+    language: "python",
+    description: "Define tu propia lógica. Escribe el cuerpo de la función 'decide'. Debes devolver una tupla (dx, dy) con el movimiento relativo.",
+    code: `# Escribe tu lógica aquí.
+    # Tienes acceso a:
+    # - 'perception': Un diccionario con datos del entorno.
+    # - 'random', 'math': Librerías estándar.
+
+    # Ejemplo de percepción:
+    # perception = {
+    #    "x": 5, "y": 5, "energy": 100,
+    #    "nearby_food": [(6,5), (5,6)],
+    #    "nearby_obstacles": [(4,4)]
+    # }
+
+    # TU CÓDIGO DEBE TERMINAR DEVOLVIENDO UNA TUPLA (dx, dy)
+    # Ejemplo: return (1, 0) para moverse a la derecha.
+
+    # --- Escribe tu código debajo de esta línea ---
+
+    if perception["nearby_food"]:
+        # Ir hacia la primera comida que vea
+        target = perception["nearby_food"][0]
+        dx = target[0] - perception["x"]
+        dy = target[1] - perception["y"]
+        # Normalizar a 1 paso (simple)
+        dx = max(-1, min(1, dx))
+        dy = max(-1, min(1, dy))
+        return (dx, dy)
+
+    # Si no hay comida, movimiento aleatorio
+    dx = random.choice([-1, 0, 1])
+    dy = random.choice([-1, 0, 1])
+    return (dx, dy)`
+  },
+
   // --- ALGORITMOS ---
   bfs: {
     title: "Algoritmo BFS",
@@ -156,11 +193,21 @@ const TEMPLATES = {
 };
 
 export const getTemplate = (type, params = {}) => {
+  // 1. Buscamos la plantilla, o usamos reactive por defecto
   let template = TEMPLATES[type] || TEMPLATES['reactive'];
   let code = template.code;
+
+  // 2. Reemplazo de variables {{variable}}
   Object.keys(params).forEach(key => {
     const regex = new RegExp(`{{${key}}}`, 'g');
     code = code.replace(regex, params[key]);
   });
-  return { ...template, code };
+
+  // 3. RETORNAMOS EL OBJETO CON EL 'type' EXPLÍCITO
+  // Aquí estaba el problema: antes no devolvíamos 'type', solo ...template y code.
+  return { 
+      ...template, 
+      code, 
+      type: type // <--- ESTO ES LO QUE FALTABA
+  };
 };

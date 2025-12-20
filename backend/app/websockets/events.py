@@ -35,6 +35,23 @@ async def process_command(cmd_type: str, data: dict):
     elif cmd_type == "UPDATE_CONFIG":
         engine.update_config(data)
 
+    # --- NUEVO: ACTUALIZACIÓN DE CÓDIGO (Para Agente Personalizado) ---
+    elif cmd_type == "UPDATE_AGENT_CODE":
+        # Recibimos el tipo de agente (generalmente 'custom') y el código string
+        target_type = data.get("agent_type")
+        new_code = data.get("code")
+        
+        if target_type and new_code is not None:
+            count = 0
+            # Buscamos todos los agentes de ese tipo y les inyectamos el código
+            for agent in engine.agents:
+                if getattr(agent, "type", "") == target_type:
+                    agent.custom_code = new_code
+                    count += 1
+            print(f"✅ Código actualizado para {count} agentes de tipo '{target_type}'")
+        else:
+             print("⚠️ Faltan datos para UPDATE_AGENT_CODE")
+
     # --- CREACIÓN DE ELEMENTOS ---
     elif cmd_type == "ADD_AGENT":
         print(f"   👾 Creando agente en ({data.get('x')}, {data.get('y')})") 
@@ -49,7 +66,6 @@ async def process_command(cmd_type: str, data: dict):
 
     elif cmd_type == "ADD_FOOD":
         config = data.get("config", {})
-        # --- CAMBIO IMPORTANTE AQUÍ ---
         # Pasamos el 'food_type' ("food" o "energy") al motor
         engine.add_food(
             data.get("x"), 
@@ -60,7 +76,31 @@ async def process_command(cmd_type: str, data: dict):
     
     elif cmd_type == "ADD_OBSTACLE":
         config = data.get("config", {})
-        engine.add_obstacle(data.get("x"), data.get("y"), config=config)
+        
+        # --- CAMBIO PARA OBSTÁCULO DINÁMICO ---
+        # Extraemos el subtipo que envía el frontend (static o dynamic)
+        subtype = data.get("subtype", "static") 
+        
+        engine.add_obstacle(
+            data.get("x"), 
+            data.get("y"), 
+            obs_type=subtype, # <--- Pasamos el tipo al motor (Importante)
+            config=config
+        )
+    # MOVIMIENTO MASIVO (DRAG & DROP DE AGENTES)
+    elif cmd_type == "BATCH_MOVE":
+        moves = data.get("moves", []) # Lista de {id, x, y}
+        count = 0
+        for move in moves:
+            # Buscamos al agente por ID
+            agent = next((a for a in engine.agents if a.id == move['id']), None)
+            if agent:
+                # Actualizamos su posición "mágicamente" (God Mode)
+                # Aseguramos que no se salga del mapa
+                agent.x = max(0, min(engine.width - 1, move['x']))
+                agent.y = max(0, min(engine.height - 1, move['y']))
+                count += 1
+        print(f"📦 Se movieron {count} agentes manualmente.")    
 
     elif cmd_type == "REMOVE_ELEMENT":
         engine.remove_at(data.get("x"), data.get("y"))

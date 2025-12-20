@@ -2,16 +2,19 @@ import random
 import math
 from typing import List, Dict, Any, Tuple
 from .agents.factory import AgentFactory
+# Asegúrate de que este archivo existe (lo creamos en pasos anteriores)
 from .algorithms.pathfinding import Pathfinding
+# Asegúrate de que este archivo existe (lo creamos en pasos recientes)
+from .services.sandbox.executor import execute_custom_agent_code
 
 class SimulationEngine:
     def __init__(self):
         self.width = 25
         self.height = 25
-        self.agents = []
-        self.food = []
-        self.obstacles = []
-        self.messages = []
+        self.agents = []    # Lista de objetos Agent
+        self.food = []      # Lista de diccionarios
+        self.obstacles = [] # Lista de diccionarios
+        self.messages = []  # Buzón global
         self.is_running = False
         self.step_count = 0
         self.speed = 0.5 
@@ -76,15 +79,47 @@ class SimulationEngine:
             "value": value
         })
 
-    def add_obstacle(self, x: int, y: int, config: Dict = None):
+    def add_obstacle(self, x: int, y: int, obs_type: str = "static", config: Dict = None):
         if self._is_occupied(x, y): return
         
-        obs = {"x": x, "y": y, "destructible": False, "cost": 5}
+        # Guardamos el tipo para saber cuál mover después
+        obs = {
+            "x": x, 
+            "y": y, 
+            "type": obs_type,  # <--- GUARDAMOS EL TIPO
+            "destructible": False, 
+            "cost": 5
+        }
+        
         if config:
             obs["destructible"] = bool(config.get("isDestructible", False))
             obs["cost"] = int(config.get("destructionCost", 5))
         
         self.obstacles.append(obs)
+    
+    # Lógica de movimiento para obstáculos
+    def _update_dynamic_obstacles(self):
+        """Mueve los obstáculos dinámicos aleatoriamente."""
+        for obs in self.obstacles:
+            # Solo movemos los que sean de tipo 'dynamic'
+            if obs.get("type") == "dynamic":
+                
+                # Intentamos movernos en una dirección aleatoria
+                moves = [(0,1), (0,-1), (1,0), (-1,0)]
+                random.shuffle(moves) # Mezclar para variedad
+                
+                for dx, dy in moves:
+                    new_x = obs["x"] + dx
+                    new_y = obs["y"] + dy
+                    
+                    # Verificar límites del mapa
+                    if 0 <= new_x < self.width and 0 <= new_y < self.height:
+                        # Verificar que no esté ocupado (por agentes, comida u otros obstáculos)
+                        # Nota: Usamos una verificación manual para no chocar con nada
+                        if not self._is_occupied(new_x, new_y):
+                            obs["x"] = new_x
+                            obs["y"] = new_y
+                            break # Ya se movió, pasamos al siguiente obstáculo
 
     def remove_at(self, x: int, y: int):
         self.agents = [a for a in self.agents if not (a.x == x and a.y == y)]
@@ -98,8 +133,34 @@ class SimulationEngine:
                any(o['x'] == x and o['y'] == y for o in self.obstacles)
 
     # =========================================================================
-    #LÓGICA DE IA (CEREBROS) 
+    # LÓGICA DE IA (CEREBROS)
     # =========================================================================
+    
+    # --- Helper para construir la "visión" del agente personalizado ---
+    def _build_perception(self, agent) -> dict:
+        vr = getattr(agent, "vision_radius", 5)
+        
+        nearby_food = []
+        for f in self.food:
+            if abs(f['x'] - agent.x) <= vr and abs(f['y'] - agent.y) <= vr:
+                nearby_food.append((f['x'], f['y']))
+                
+        nearby_obstacles = []
+        for o in self.obstacles:
+            if abs(o['x'] - agent.x) <= vr and abs(o['y'] - agent.y) <= vr:
+                nearby_obstacles.append((o['x'], o['y']))
+        
+        return {
+            "x": agent.x,
+            "y": agent.y,
+            "energy": agent.energy,
+            "vision_radius": vr,
+            "grid_width": self.width,
+            "grid_height": self.height,
+            "nearby_food": nearby_food,
+            "nearby_obstacles": nearby_obstacles
+        }
+
     def _get_agent_decision(self, agent, world_state) -> Tuple[int, int]:
         """Despacha la decisión al método correspondiente según el tipo de agente."""
         agent_type = getattr(agent, "type", "reactive").lower()
@@ -111,7 +172,8 @@ class SimulationEngine:
             "collector": self._logic_collector,
             "cooperative": self._logic_cooperative,
             "competitive": self._logic_competitive,
-            "q_learning": self._logic_q_learning
+            "q_learning": self._logic_q_learning,
+            "custom": self._logic_custom # <--- Agente Personalizado
         }
         
         # Buscar la función adecuada (o usar reactive por defecto)
@@ -178,6 +240,18 @@ class SimulationEngine:
         # Placeholder
         return random.choice([(0,1), (0,-1), (1,0), (-1,0)])
 
+    def _logic_custom(self, agent, ws):
+        """Ejecuta el código Python enviado por el usuario."""
+        if not getattr(agent, "custom_code", None):
+             return 0, 0
+
+        # Construir percepción (lo que ve el agente)
+        perception = self._build_perception(agent)
+        
+        # Ejecutar en el Sandbox
+        dx, dy = execute_custom_agent_code(agent.custom_code, perception)
+        return dx, dy
+
     # --- HELPERS DE IA ---
     def _find_nearest_food(self, agent):
         target = None
@@ -203,16 +277,20 @@ class SimulationEngine:
         return algo(start, target, self.width, self.height, self.obstacles)
 
     # =========================================================================
-    #BUCLE PRINCIPAL (FÍSICA Y REGLAS)
+    # BUCLE PRINCIPAL (FÍSICA Y REGLAS)
     # =========================================================================
     def step(self):
         if self._check_stop_conditions():
             return
 
         self.step_count += 1
-        self.messages = [] # Limpiar mensajes (TTL 1 turno)
+        self.messages = [] 
 
-        # Snapshot para decisiones (Read-only para agentes)
+        # --- A. MOVER OBSTÁCULOS DINÁMICOS ---
+        # Lo hacemos antes que los agentes para añadir dificultad
+        self._update_dynamic_obstacles()
+
+        # Snapshot para decisiones
         world_state = {
             "food": self.food,
             "obstacles": self.obstacles,
@@ -222,37 +300,57 @@ class SimulationEngine:
         for agent in self.agents:
             if agent.energy <= 0: continue
 
-            # 1. DECISIÓN (Brain)
+            # 1. DECISIÓN
             dx, dy = self._get_agent_decision(agent, world_state)
 
-            # 2. ACCIÓN (Physics)
+            # 2. ACCIÓN
             self._apply_movement(agent, dx, dy)
             
-            # 3. INTERACCIÓN (Comer / Comunicar)
+            # 3. INTERACCIÓN
             self._handle_interactions(agent)
 
-        # Verificación final post-turno
         if self._check_stop_conditions():
             return
 
     def _apply_movement(self, agent, dx, dy):
-        """Aplica movimiento resolviendo colisiones."""
+        """Aplica movimiento resolviendo colisiones y destrucción de obstáculos."""
         new_x = max(0, min(self.width - 1, agent.x + dx))
         new_y = max(0, min(self.height - 1, agent.y + dy))
 
-        # Check Obstáculos
-        if any(o['x'] == new_x and o['y'] == new_y for o in self.obstacles):
-            agent.energy -= 0.1 # Penalización choque
-            return
+        # 1. VERIFICAR OBSTÁCULOS (Y DESTRUCCIÓN)
+        # Buscamos si hay un obstáculo en la casilla destino
+        obstacle = next((o for o in self.obstacles if o['x'] == new_x and o['y'] == new_y), None)
+        
+        if obstacle:
+            # Si es destructible y el agente tiene suficiente energía
+            cost = obstacle.get("cost", 5)
+            is_destructible = obstacle.get("destructible", False) or obstacle.get("type") == "dynamic" # Asumimos dinámicos destructibles también
+            
+            if is_destructible and agent.energy > cost:
+                # DESTRUCCIÓN EXITOSA
+                agent.energy -= cost
+                self.obstacles.remove(obstacle) # Eliminar del mundo
+                print(f"💥 Obstáculo destruido en ({new_x}, {new_y}) por {agent.id}")
+                # Nota: En este turno destruye el obstáculo pero NO se mueve a la casilla
+                # (gasta el turno rompiendo la pared). En el siguiente turno podrá avanzar.
+                return 
+            else:
+                # CHOQUE (No destructible o sin energía)
+                agent.energy -= 0.1 
+                return
 
-        # Check Otros Agentes
+        # 2. VERIFICAR OTROS AGENTES
         if any(a.id != agent.id and a.x == new_x and a.y == new_y for a in self.agents):
-            return # Bloqueado
+            return # Bloqueado por otro agente
 
-        # Movimiento exitoso
+        # 3. MOVIMIENTO EXITOSO
         agent.x = new_x
         agent.y = new_y
-        agent.energy -= 0.5
+        agent.energy -= 0.5 # Costo base por moverse
+        
+        # --- NUEVO: ACTUALIZAR ESTADÍSTICAS ---
+        agent.steps_taken += 1
+        agent.path_history.append((new_x, new_y))
 
     def _handle_interactions(self, agent):
         """Maneja comer y comunicar."""

@@ -1,0 +1,46 @@
+import ast
+
+class SecurityViolation(Exception):
+    pass
+
+class CodeParser:
+    """
+    Analiza estáticamente el código Python para detectar operaciones inseguras
+    antes de la ejecución.
+    """
+    
+    # Lista negra de módulos que no se pueden importar
+    FORBIDDEN_MODULES = {'os', 'sys', 'subprocess', 'shutil', 'builtins', 'importlib'}
+    
+    # Lista negra de funciones peligrosas
+    FORBIDDEN_FUNCTIONS = {'open', 'eval', 'exec', 'input', 'exit', 'quit'}
+
+    @staticmethod
+    def validate(code_str: str):
+        """
+        Parsea el código y lanza SecurityViolation si encuentra algo peligroso.
+        """
+        try:
+            tree = ast.parse(code_str)
+        except SyntaxError as e:
+            raise SecurityViolation(f"Error de sintaxis: {e}")
+
+        for node in ast.walk(tree):
+            # 1. Bloquear importaciones peligrosas (import os)
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name in CodeParser.FORBIDDEN_MODULES:
+                        raise SecurityViolation(f"Importación prohibida: '{alias.name}'")
+
+            # 2. Bloquear importaciones específicas (from os import system)
+            elif isinstance(node, ast.ImportFrom):
+                if node.module in CodeParser.FORBIDDEN_MODULES:
+                    raise SecurityViolation(f"Importación prohibida: '{node.module}'")
+
+            # 3. Bloquear llamadas a funciones peligrosas (open(), eval())
+            elif isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name):
+                    if node.func.id in CodeParser.FORBIDDEN_FUNCTIONS:
+                        raise SecurityViolation(f"Función prohibida: '{node.func.id}'")
+
+        return True
