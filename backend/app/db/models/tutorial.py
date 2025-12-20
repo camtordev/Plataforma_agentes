@@ -15,40 +15,17 @@ from app.db.base import Base
 
 class Tutorial(Base):
     """
-    Tutoriales interactivos progresivos (RF4.1)
-    8 niveles de aprendizaje con teoría y práctica
+    Tutoriales - Solo metadatos
+    El contenido educativo está en tutorialsData.js (frontend)
     """
     __tablename__ = "tutorials"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     level = Column(Integer, unique=True, nullable=False, index=True)
-    title = Column(String(200), nullable=False)
     slug = Column(String(100), unique=True, nullable=False, index=True)
-    description = Column(Text, nullable=False)
-
-    # Contenido educativo
-    theory_content = Column(Text)  # Markdown con explicaciones
-    diagram_url = Column(String(500))  # URL de imagen explicativa
-    learning_objectives = Column(ARRAY(Text))  # Array de objetivos
-
-    # Configuración inicial para el tutorial
-    starter_code = Column(Text, nullable=False)
-    initial_world_state = Column(JSONB, nullable=False)
-    grid_config = Column(JSONB)  # {width: 15, height: 15}
-
-    # Criterios de éxito automatizados (RF4.1)
-    success_criteria = Column(JSONB, nullable=False)
-    # Ejemplo: {"min_food_collected": 5, "max_steps": 100, "must_reach_goal": true}
-
-    # Metadata
-    difficulty = Column(String(20), nullable=False)
-    estimated_time_minutes = Column(Integer)
-    prerequisites = Column(ARRAY(Integer))  # IDs de tutoriales previos
-    tags = Column(ARRAY(String(50)))
-
+    
     # Estado
     is_active = Column(Boolean, default=True, nullable=False, index=True)
-    order_index = Column(Integer, nullable=False)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -59,10 +36,6 @@ class Tutorial(Base):
     user_progress = relationship("UserProgress", back_populates="tutorial")
 
     __table_args__ = (
-        CheckConstraint(
-            "difficulty IN ('beginner', 'intermediate', 'advanced')",
-            name='check_tutorial_difficulty'
-        ),
         CheckConstraint('level >= 1 AND level <= 20',
                         name='check_tutorial_level'),
     )
@@ -94,18 +67,12 @@ class UserProgress(Base):
 
     # Estadísticas (RF4.2)
     attempts_count = Column(Integer, default=0, nullable=False)
+    # Solo guardamos tiempo empleado
     time_spent_seconds = Column(Integer, default=0, nullable=False)
-    lines_of_code = Column(Integer, default=0, nullable=False)
-    steps_to_solution = Column(Integer)
-    efficiency_score = Column(Integer)  # 0-100
-
-    # Criterios cumplidos
-    criteria_met = Column(JSONB)  # {food_collected: 5, steps_used: 87, ...}
 
     # Timestamps
     started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     completed_at = Column(DateTime)
-    last_attempt_at = Column(DateTime)
     updated_at = Column(DateTime, default=datetime.utcnow,
                         onupdate=datetime.utcnow)
 
@@ -117,12 +84,8 @@ class UserProgress(Base):
         Index('idx_progress_unique', 'user_id', 'tutorial_id', unique=True),
         Index('idx_progress_status', 'tutorial_id', 'status'),
         CheckConstraint(
-            "status IN ('not_started', 'in_progress', 'completed', 'perfect')",
+            "status IN ('not_started', 'in_progress', 'completed')",
             name='check_progress_status'
-        ),
-        CheckConstraint(
-            'efficiency_score IS NULL OR (efficiency_score >= 0 AND efficiency_score <= 100)',
-            name='check_efficiency_range'
         ),
     )
 
