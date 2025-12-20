@@ -97,11 +97,11 @@ const StatsPanel = () => {
                 </h3>
                 <div className="flex-1 overflow-hidden relative">
                     <div className="absolute inset-0 overflow-y-auto font-mono text-[10px] space-y-1 text-zinc-400 scrollbar-thin scrollbar-thumb-zinc-800">
-                        <p>> Sistema iniciado.</p>
-                        {step > 0 && <p className="text-blue-400/70">> Simulación activa. Tick {step}</p>}
+                        <p> Sistema iniciado.</p>
+                        {step > 0 && <p className="text-blue-400/70"> Simulación activa. Tick {step}</p>}
                         {/* Mostramos eventos recientes simulados */}
-                        {agents.map((a, i) => i < 2 && <p key={i}>> Agente {a.id.split('_')[1]} activo.</p>)}
-                        {agents.length === 0 && step > 5 && <p className="text-red-400">> Alerta: Población cero.</p>}
+                        {agents.map((a, i) => i < 2 && <p key={i}> Agente {a.id.split('_')[1]} activo.</p>)}
+                        {agents.length === 0 && step > 5 && <p className="text-red-400"> Alerta: Población cero.</p>}
                     </div>
                 </div>
             </div>
