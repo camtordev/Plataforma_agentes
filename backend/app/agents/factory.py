@@ -47,6 +47,12 @@ class AgentFactory:
             new_agent.alpha = 0.5
             new_agent.gamma = 0.9
 
+        elif type_key == "custom":
+            new_agent.vision_radius = 10 # Le damos buena visión por defecto
+            # El código se asignará después mediante un evento específico,
+            # o podemos cargar un default aquí si lo tenemos.
+            new_agent.custom_code = None 
+
         # Si no reconocemos el tipo, lo dejamos como genérico (reactive)
         else:
             new_agent.type = "reactive"
