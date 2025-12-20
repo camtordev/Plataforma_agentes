@@ -3,6 +3,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
+# Importar todos los modelos para que SQLAlchemy pueda resolver las relaciones
+from app.db.models.user import User, Role, UserSession  # noqa: F401
+from app.db.models.project import Project, SharedProject, ProjectCollaborator  # noqa: F401
+from app.db.models.tutorial import Tutorial, UserProgress, Achievement, UserAchievement  # noqa: F401
+from app.db.models.metrics import SimulationMetrics, AgentMetrics, HeatmapData  # noqa: F401
+
 # Crear engine de SQLAlchemy
 engine = create_engine(
     settings.DATABASE_URL,

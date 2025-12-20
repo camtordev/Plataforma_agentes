@@ -1,9 +1,4 @@
-from app.services.game_instance import get_engine
-
-# Obtenemos la instancia del motor
-engine = get_engine()
-
-async def process_command(cmd_type: str, data: dict):
+async def process_command(engine, cmd_type: str, data: dict):
     """
     Recibe un comando y ejecuta la acción en el motor.
     Retorna el estado actualizado (dict) para notificar al cliente.

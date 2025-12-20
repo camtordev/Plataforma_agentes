@@ -13,7 +13,7 @@ const ICON_APPLE_LEAF = "M10 2c1 0 2 .5 2 2a2 2 0 0 1-2 2 2 2 0 0 1-2-2c0-1.1.9-
 
 const GridCanvas = () => {
   // 1. Extraemos 'setTemplateByType' del contexto
-  const { worldState = {}, gridConfig, selectedTool, sendMessage, setTemplateByType } = useSimulation();
+  const { worldState = {}, gridConfig, selectedTool, sendMessage, setTemplateByType, isReadOnly } = useSimulation();
   const stageRef = useRef(null);
 
   const agents = worldState.agents || [];
@@ -29,6 +29,7 @@ const GridCanvas = () => {
 
   // --- LÓGICA DE CLIC (ACTUALIZADA) ---
   const handleStageClick = (e) => {
+    if (isReadOnly) return;
     const stage = e.target.getStage();
     const pointer = stage.getRelativePointerPosition();
     const gridX = Math.floor(pointer.x / actualCellSize);

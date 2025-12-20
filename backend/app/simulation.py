@@ -293,3 +293,51 @@ class SimulationEngine:
                 }
             }
         }
+
+    # --- Cargar estado desde snapshot (para import/export) ---
+    def load_state(self, state: Dict[str, Any]):
+        """
+        Restaura el estado completo del engine desde un snapshot.
+        Espera claves: width, height, agents, food, obstacles, config.
+        """
+        try:
+            self.width = int(state.get("width", self.width))
+            self.height = int(state.get("height", self.height))
+        except Exception:
+            pass
+
+        self.reset()
+        self.width = state.get("width", self.width)
+        self.height = state.get("height", self.height)
+
+        # Restaurar configuraciÇün
+        cfg = state.get("config") or {}
+        if cfg:
+            self.update_config(cfg)
+
+        # Restaurar comida y obstÇ­culos
+        self.food = state.get("food", [])
+        self.obstacles = state.get("obstacles", [])
+
+        # Restaurar agentes
+        self.agents = []
+        for a in state.get("agents", []):
+            try:
+                agent = AgentFactory.create_agent(
+                    getattr(a, "type", None) or a.get("type", "reactive"),
+                    a.get("id", f"agent_{len(self.agents)}"),
+                    int(a.get("x", 0)),
+                    int(a.get("y", 0)),
+                    strategy=a.get("strategy", "bfs"),
+                )
+                if hasattr(agent, "energy"):
+                    agent.energy = a.get("energy", getattr(agent, "energy", 100))
+                if hasattr(agent, "speed"):
+                    agent.speed = a.get("speed", getattr(agent, "speed", 1))
+                if hasattr(agent, "vision_radius"):
+                    agent.vision_radius = a.get("vision_radius", getattr(agent, "vision_radius", 3))
+                if hasattr(agent, "color"):
+                    agent.color = a.get("color", getattr(agent, "color", "#22d3ee"))
+                self.agents.append(agent)
+            except Exception:
+                continue

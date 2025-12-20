@@ -1,161 +1,150 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from "react";
-// --- NUEVO: Importamos el generador de plantillas ---
-import { getTemplate } from "../templates/agentTemplates"; 
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
+import { getTemplate } from "../templates/agentTemplates";
 
-// 1. Estado Inicial
 const initialState = {
   isRunning: false,
   step: 0,
-  agents: [],       
-  food: [],         
-  obstacles: [],    
+  agents: [],
+  food: [],
+  obstacles: [],
   gridConfig: { width: 25, height: 25, cellSize: 20 },
-  
-  // Herramienta activa por defecto
-  selectedTool: "select", 
-
+  selectedTool: "select",
   code: "",
-
-  // --- NUEVO: Estado para la plantilla seleccionada ---
-  // Inicializamos con la plantilla reactiva por defecto para que el panel no salga vacío
-  selectedTemplate: getTemplate('reactive'),
-
-  // Configuración del Agente a insertar
+  selectedTemplate: getTemplate("reactive"),
   agentConfig: {
-    type: "reactive",   
-    strategy: "bfs"    
+    type: "reactive",
+    strategy: "bfs",
   },
-
-  // Configuración de la lógica de Simulación
   simulationConfig: {
-    maxSteps: 100,      
-    isUnlimited: false, 
-    stopOnFood: true    
-  }
+    maxSteps: 100,
+    isUnlimited: false,
+    stopOnFood: true,
+  },
 };
 
-// 2. Reducer
 function simulationReducer(state, action) {
   switch (action.type) {
-    
-    // Optimistic UI para el slider
     case "SET_GRID_CONFIG":
-      return { 
-        ...state, 
-        gridConfig: { ...state.gridConfig, ...action.payload } 
+      return {
+        ...state,
+        gridConfig: { ...state.gridConfig, ...action.payload },
       };
-
     case "UPDATE_WORLD":
-      // Sincronización total con el Backend
       return {
         ...state,
         agents: action.payload.agents || [],
         food: action.payload.food || [],
         obstacles: action.payload.obstacles || [],
         step: action.payload.step || 0,
-        
-        // Si el backend manda dimensiones, las respetamos
         gridConfig: {
-            ...state.gridConfig,
-            width: action.payload.width || state.gridConfig.width,
-            height: action.payload.height || state.gridConfig.height
+          ...state.gridConfig,
+          width: action.payload.width || state.gridConfig.width,
+          height: action.payload.height || state.gridConfig.height,
         },
-        
-        // Si el backend dice que paró, actualizamos
-        isRunning: action.payload.isRunning !== undefined ? action.payload.isRunning : state.isRunning,
-
-        // Sincronizar config si el backend la devuelve
-        simulationConfig: action.payload.config ? { ...state.simulationConfig, ...action.payload.config } : state.simulationConfig
+        isRunning:
+          action.payload.isRunning !== undefined
+            ? action.payload.isRunning
+            : state.isRunning,
+        simulationConfig: action.payload.config
+          ? { ...state.simulationConfig, ...action.payload.config }
+          : state.simulationConfig,
       };
-
-    case "START_SIMULATION": return { ...state, isRunning: true };
-    case "STOP_SIMULATION": return { ...state, isRunning: false };
-    
-    // Actualizar herramienta seleccionada
-    case "SET_TOOL": return { ...state, selectedTool: action.payload };
-    
-    // --- NUEVO: Actualizar la plantilla actual ---
-    case "SET_TEMPLATE": return { ...state, selectedTemplate: action.payload };
-
+    case "START_SIMULATION":
+      return { ...state, isRunning: true };
+    case "STOP_SIMULATION":
+      return { ...state, isRunning: false };
+    case "SET_TOOL":
+      return { ...state, selectedTool: action.payload };
+    case "SET_TEMPLATE":
+      return { ...state, selectedTemplate: action.payload };
     case "SET_AGENT_CONFIG":
       return { ...state, agentConfig: { ...state.agentConfig, ...action.payload } };
-
     case "SET_SIMULATION_CONFIG":
-      return { ...state, simulationConfig: { ...state.simulationConfig, ...action.payload } };
-
+      return {
+        ...state,
+        simulationConfig: { ...state.simulationConfig, ...action.payload },
+      };
     default:
       return state;
   }
 }
 
-// 3. Crear el Contexto
 const SimulationContext = createContext(null);
 
-// 4. Provider
-export function SimulationProvider({ children }) {
+export function SimulationProvider({ children, projectId, readOnly = false }) {
   const [state, dispatch] = useReducer(simulationReducer, initialState);
-  const socketRef = useRef(null); 
+  const socketRef = useRef(null);
 
-  // --- CONEXIÓN WEBSOCKET CENTRALIZADA ---
   useEffect(() => {
-    const WS_URL = "ws://localhost:8000/ws/simulacion";
-    
+    const WS_URL = projectId
+      ? `ws://localhost:8000/ws/simulacion?project=${projectId}`
+      : "ws://localhost:8000/ws/simulacion";
+
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        return; 
+      return;
     }
 
     const ws = new WebSocket(WS_URL);
     socketRef.current = ws;
 
     ws.onopen = () => {
-        console.log("✅ [Context] WebSocket Conectado");
+      console.log("[Context] WebSocket Conectado");
     };
 
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === "WORLD_UPDATE") {
-            dispatch({ type: "UPDATE_WORLD", payload: message.data });
+          dispatch({ type: "UPDATE_WORLD", payload: message.data });
         }
       } catch (e) {
         console.error("Error socket:", e);
       }
     };
 
-    ws.onclose = () => console.log("🔌 [Context] WebSocket Desconectado");
-    
+    ws.onclose = () => console.log("[Context] WebSocket Desconectado");
+
     ws.onerror = (error) => {
-        console.error("⚠️ Error en WebSocket:", error);
+      console.error("Error en WebSocket:", error);
     };
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-          ws.close();
+      if (
+        ws.readyState === WebSocket.OPEN ||
+        ws.readyState === WebSocket.CONNECTING
+      ) {
+        ws.close();
       }
     };
-  }, []); 
+  }, [projectId]);
 
-  // --- FUNCIÓN PARA ENVIAR ---
   const sendMessage = useCallback((msg) => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        socketRef.current.send(JSON.stringify(msg));
+      socketRef.current.send(JSON.stringify(msg));
     } else {
-        console.warn("⚠️ Socket no listo para enviar:", msg);
+      console.warn("Socket no listo para enviar:", msg);
     }
   }, []);
 
-  // --- NUEVO HELPER: Cambiar Plantilla por Tipo ---
-  // Esta función encapsula la lógica de buscar la plantilla y despachar la acción
   const setTemplateByType = useCallback((type, params = {}) => {
     const template = getTemplate(type, params);
     dispatch({ type: "SET_TEMPLATE", payload: template });
   }, []);
 
-  // Helpers existentes
-  const setIsRunning = useCallback((isRunning) => {
-    dispatch({ type: isRunning ? "START_SIMULATION" : "STOP_SIMULATION" });
-    sendMessage({ type: isRunning ? "START" : "STOP" });
-  }, [sendMessage]);
+  const setIsRunning = useCallback(
+    (isRunning) => {
+      dispatch({ type: isRunning ? "START_SIMULATION" : "STOP_SIMULATION" });
+      sendMessage({ type: isRunning ? "START" : "STOP" });
+    },
+    [sendMessage],
+  );
 
   const setSelectedTool = useCallback((tool) => {
     dispatch({ type: "SET_TOOL", payload: tool });
@@ -165,24 +154,22 @@ export function SimulationProvider({ children }) {
     dispatch({ type: "UPDATE_WORLD", payload: data });
   }, []);
 
-
   const value = {
-    ...state,        
-    worldState: {    
+    ...state,
+    worldState: {
       agents: state.agents,
       food: state.food,
       obstacles: state.obstacles,
-      step: state.step
+      step: state.step,
     },
-    // Nuevos valores expuestos
     selectedTemplate: state.selectedTemplate,
-    setTemplateByType, 
-    
-    sendMessage,     
+    setTemplateByType,
+    sendMessage,
     setIsRunning,
-    setSelectedTool, 
+    setSelectedTool,
     updateWorldState,
-    dispatch
+    dispatch,
+    isReadOnly: readOnly,
   };
 
   return (

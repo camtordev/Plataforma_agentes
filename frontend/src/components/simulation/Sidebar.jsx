@@ -90,8 +90,13 @@ export default function Sidebar() {
     gridConfig, simulationConfig, 
     dispatch, sendMessage, isRunning,
     selectedTool, setSelectedTool,
-    setTemplateByType // Extraemos la función para actualizar la plantilla
+    setTemplateByType,
+    isReadOnly,
   } = useSimulation()
+
+  if (isReadOnly) {
+    return null
+  }
 
   const handleDragStart = (e, element) => {
     if (selectedTool === 'eraser') {

@@ -7,8 +7,8 @@ import GridCanvas from "./GridCanvas"
 import SimulationControls from "./SimulationControls"
 import RightPanel from "./RightPanel"
 
-const GridEditor = () => {
-  const { sendMessage, gridConfig } = useSimulation()
+const GridEditor = ({ hideControls = false }) => {
+  const { sendMessage, gridConfig, isReadOnly } = useSimulation()
   
   // Valores por defecto seguros para evitar errores antes de cargar la config
   const width = gridConfig?.width || 25
@@ -20,6 +20,10 @@ const GridEditor = () => {
   // --- LÓGICA DE DROP ---
   const handleDrop = (e) => {
     e.preventDefault()
+    if (isReadOnly) {
+      setIsDraggingOver(false)
+      return
+    }
     setIsDraggingOver(false)
 
     try {
@@ -64,6 +68,7 @@ const GridEditor = () => {
 
   const handleDragOver = (e) => {
     e.preventDefault()
+    if (isReadOnly) return
     e.dataTransfer.dropEffect = "copy"
     setIsDraggingOver(true)
   }
@@ -71,14 +76,16 @@ const GridEditor = () => {
   return (
     <div className="flex h-full w-full bg-zinc-950 text-white overflow-hidden">
       {/* 1. Sidebar Izquierdo */}
-      <Sidebar />
+      {!isReadOnly && <Sidebar />}
 
       {/* 2. Área Central */}
       <div className="flex-1 flex flex-col relative h-full">
         {/* Barra superior de controles */}
-        <div className="p-2 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur z-20 flex justify-center shrink-0">
-          <SimulationControls />
-        </div>
+        {!hideControls && (
+          <div className="p-2 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur z-20 flex justify-center shrink-0">
+            <SimulationControls />
+          </div>
+        )}
 
         {/* ÁREA DE SCROLL 
             El padre tiene overflow-auto para permitir moverse si el grid es gigante.
