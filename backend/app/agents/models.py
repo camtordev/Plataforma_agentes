@@ -1,3 +1,5 @@
+# backend/app/agents/models.py
+
 from typing import Dict, Any, List
 
 class Agent:
@@ -8,22 +10,25 @@ class Agent:
         
         # Propiedades por defecto
         self.energy = 100
-        self.color = "#22d3ee" # Cyan por defecto
-        self.type = "reactive" # Tipo de agente
-        self.strategy = "bfs"  # Estrategia de búsqueda
-        # Campo para guardar el código del usuario
-        self.custom_code = None
+        self.color = "#22d3ee"
+        self.type = "reactive"
+        self.strategy = "bfs"
+        
         # Propiedades de simulación
         self.speed = 1
         self.vision_radius = 5
+        self.steps_taken = 0      # Contador de pasos
         
-        # Memoria interna (Usada por Explorer, Q-Learning, etc)
+        # Memoria interna
         self.visited = set() 
-        self.inbox = [] # Para mensajes cooperativos
-        self.q_table = {} # Para Q-Learning
+        self.inbox = [] 
+        self.q_table = {}
+        self.custom_code = None
+        
+        # Historial de movimiento (para estadísticas)
+        self.path_history = [(x, y)] # Guardamos el inicio
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convierte el agente a diccionario para enviarlo al frontend."""
         return {
             "id": self.id,
             "x": self.x,
@@ -32,5 +37,7 @@ class Agent:
             "color": self.color,
             "type": self.type,
             "strategy": self.strategy,
-            "visionRadius": self.vision_radius
+            "visionRadius": self.vision_radius,
+            "steps": self.steps_taken,        
+            "path": self.path_history         
         }

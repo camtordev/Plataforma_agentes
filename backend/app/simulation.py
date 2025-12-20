@@ -79,15 +79,47 @@ class SimulationEngine:
             "value": value
         })
 
-    def add_obstacle(self, x: int, y: int, config: Dict = None):
+    def add_obstacle(self, x: int, y: int, obs_type: str = "static", config: Dict = None):
         if self._is_occupied(x, y): return
         
-        obs = {"x": x, "y": y, "destructible": False, "cost": 5}
+        # Guardamos el tipo para saber cuál mover después
+        obs = {
+            "x": x, 
+            "y": y, 
+            "type": obs_type,  # <--- GUARDAMOS EL TIPO
+            "destructible": False, 
+            "cost": 5
+        }
+        
         if config:
             obs["destructible"] = bool(config.get("isDestructible", False))
             obs["cost"] = int(config.get("destructionCost", 5))
         
         self.obstacles.append(obs)
+    
+    # Lógica de movimiento para obstáculos
+    def _update_dynamic_obstacles(self):
+        """Mueve los obstáculos dinámicos aleatoriamente."""
+        for obs in self.obstacles:
+            # Solo movemos los que sean de tipo 'dynamic'
+            if obs.get("type") == "dynamic":
+                
+                # Intentamos movernos en una dirección aleatoria
+                moves = [(0,1), (0,-1), (1,0), (-1,0)]
+                random.shuffle(moves) # Mezclar para variedad
+                
+                for dx, dy in moves:
+                    new_x = obs["x"] + dx
+                    new_y = obs["y"] + dy
+                    
+                    # Verificar límites del mapa
+                    if 0 <= new_x < self.width and 0 <= new_y < self.height:
+                        # Verificar que no esté ocupado (por agentes, comida u otros obstáculos)
+                        # Nota: Usamos una verificación manual para no chocar con nada
+                        if not self._is_occupied(new_x, new_y):
+                            obs["x"] = new_x
+                            obs["y"] = new_y
+                            break # Ya se movió, pasamos al siguiente obstáculo
 
     def remove_at(self, x: int, y: int):
         self.agents = [a for a in self.agents if not (a.x == x and a.y == y)]
@@ -252,9 +284,13 @@ class SimulationEngine:
             return
 
         self.step_count += 1
-        self.messages = [] # Limpiar mensajes (TTL 1 turno)
+        self.messages = [] 
 
-        # Snapshot para decisiones (Read-only para agentes)
+        # --- A. MOVER OBSTÁCULOS DINÁMICOS ---
+        # Lo hacemos antes que los agentes para añadir dificultad
+        self._update_dynamic_obstacles()
+
+        # Snapshot para decisiones
         world_state = {
             "food": self.food,
             "obstacles": self.obstacles,
@@ -264,37 +300,57 @@ class SimulationEngine:
         for agent in self.agents:
             if agent.energy <= 0: continue
 
-            # 1. DECISIÓN (Brain)
+            # 1. DECISIÓN
             dx, dy = self._get_agent_decision(agent, world_state)
 
-            # 2. ACCIÓN (Physics)
+            # 2. ACCIÓN
             self._apply_movement(agent, dx, dy)
             
-            # 3. INTERACCIÓN (Comer / Comunicar)
+            # 3. INTERACCIÓN
             self._handle_interactions(agent)
 
-        # Verificación final post-turno
         if self._check_stop_conditions():
             return
 
     def _apply_movement(self, agent, dx, dy):
-        """Aplica movimiento resolviendo colisiones."""
+        """Aplica movimiento resolviendo colisiones y destrucción de obstáculos."""
         new_x = max(0, min(self.width - 1, agent.x + dx))
         new_y = max(0, min(self.height - 1, agent.y + dy))
 
-        # Check Obstáculos
-        if any(o['x'] == new_x and o['y'] == new_y for o in self.obstacles):
-            agent.energy -= 0.1 # Penalización choque
-            return
+        # 1. VERIFICAR OBSTÁCULOS (Y DESTRUCCIÓN)
+        # Buscamos si hay un obstáculo en la casilla destino
+        obstacle = next((o for o in self.obstacles if o['x'] == new_x and o['y'] == new_y), None)
+        
+        if obstacle:
+            # Si es destructible y el agente tiene suficiente energía
+            cost = obstacle.get("cost", 5)
+            is_destructible = obstacle.get("destructible", False) or obstacle.get("type") == "dynamic" # Asumimos dinámicos destructibles también
+            
+            if is_destructible and agent.energy > cost:
+                # DESTRUCCIÓN EXITOSA
+                agent.energy -= cost
+                self.obstacles.remove(obstacle) # Eliminar del mundo
+                print(f"💥 Obstáculo destruido en ({new_x}, {new_y}) por {agent.id}")
+                # Nota: En este turno destruye el obstáculo pero NO se mueve a la casilla
+                # (gasta el turno rompiendo la pared). En el siguiente turno podrá avanzar.
+                return 
+            else:
+                # CHOQUE (No destructible o sin energía)
+                agent.energy -= 0.1 
+                return
 
-        # Check Otros Agentes
+        # 2. VERIFICAR OTROS AGENTES
         if any(a.id != agent.id and a.x == new_x and a.y == new_y for a in self.agents):
-            return # Bloqueado
+            return # Bloqueado por otro agente
 
-        # Movimiento exitoso
+        # 3. MOVIMIENTO EXITOSO
         agent.x = new_x
         agent.y = new_y
-        agent.energy -= 0.5
+        agent.energy -= 0.5 # Costo base por moverse
+        
+        # --- NUEVO: ACTUALIZAR ESTADÍSTICAS ---
+        agent.steps_taken += 1
+        agent.path_history.append((new_x, new_y))
 
     def _handle_interactions(self, agent):
         """Maneja comer y comunicar."""
