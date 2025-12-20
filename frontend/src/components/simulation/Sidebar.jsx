@@ -5,7 +5,7 @@ import {
   Bot, Apple, Box, Zap, Settings2, Shield, Eye, 
   Grid3x3, Clock, MousePointer2, Brush, Eraser, BoxSelect,
   // NUEVOS ICONOS PARA LOS AGENTES
-  Activity, Users, Swords, BrainCircuit 
+  Activity, Users, Swords, BrainCircuit, TerminalSquare
 } from "lucide-react"
 import { useSimulation } from "../../context/SimulationContext"
 import PropertyConfigModal from "./PropertyConfigModal"
@@ -55,6 +55,14 @@ const INITIAL_ELEMENTS = [
     id: "agent-rl", type: "agent", subtype: "q_learning", label: "Q-Learning", 
     icon: BrainCircuit, color: "text-pink-400 bg-pink-500/10 border-pink-500/20",
     defaultConfig: { speed: 5, initialEnergy: 100, color: "#f472b6", epsilon: 0.1, alpha: 0.5, gamma: 0.9 }
+  },
+  // 7. Agente Personalizado ---
+  { 
+    id: "agent-custom", type: "agent", subtype: "custom", label: "Personalizado", 
+    icon: TerminalSquare, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+    defaultConfig: { speed: 5, initialEnergy: 100, color: "#6366f1" }
+    // NOTA: No enviamos el código en defaultConfig al arrastrar, 
+    // se usará la plantilla por defecto en el backend.
   },
 
   // --- RECURSOS Y OBSTÁCULOS ---

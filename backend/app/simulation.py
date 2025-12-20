@@ -2,16 +2,19 @@ import random
 import math
 from typing import List, Dict, Any, Tuple
 from .agents.factory import AgentFactory
+# Asegúrate de que este archivo existe (lo creamos en pasos anteriores)
 from .algorithms.pathfinding import Pathfinding
+# Asegúrate de que este archivo existe (lo creamos en pasos recientes)
+from .services.sandbox.executor import execute_custom_agent_code
 
 class SimulationEngine:
     def __init__(self):
         self.width = 25
         self.height = 25
-        self.agents = []
-        self.food = []
-        self.obstacles = []
-        self.messages = []
+        self.agents = []    # Lista de objetos Agent
+        self.food = []      # Lista de diccionarios
+        self.obstacles = [] # Lista de diccionarios
+        self.messages = []  # Buzón global
         self.is_running = False
         self.step_count = 0
         self.speed = 0.5 
@@ -98,8 +101,34 @@ class SimulationEngine:
                any(o['x'] == x and o['y'] == y for o in self.obstacles)
 
     # =========================================================================
-    #LÓGICA DE IA (CEREBROS) 
+    # LÓGICA DE IA (CEREBROS)
     # =========================================================================
+    
+    # --- Helper para construir la "visión" del agente personalizado ---
+    def _build_perception(self, agent) -> dict:
+        vr = getattr(agent, "vision_radius", 5)
+        
+        nearby_food = []
+        for f in self.food:
+            if abs(f['x'] - agent.x) <= vr and abs(f['y'] - agent.y) <= vr:
+                nearby_food.append((f['x'], f['y']))
+                
+        nearby_obstacles = []
+        for o in self.obstacles:
+            if abs(o['x'] - agent.x) <= vr and abs(o['y'] - agent.y) <= vr:
+                nearby_obstacles.append((o['x'], o['y']))
+        
+        return {
+            "x": agent.x,
+            "y": agent.y,
+            "energy": agent.energy,
+            "vision_radius": vr,
+            "grid_width": self.width,
+            "grid_height": self.height,
+            "nearby_food": nearby_food,
+            "nearby_obstacles": nearby_obstacles
+        }
+
     def _get_agent_decision(self, agent, world_state) -> Tuple[int, int]:
         """Despacha la decisión al método correspondiente según el tipo de agente."""
         agent_type = getattr(agent, "type", "reactive").lower()
@@ -111,7 +140,8 @@ class SimulationEngine:
             "collector": self._logic_collector,
             "cooperative": self._logic_cooperative,
             "competitive": self._logic_competitive,
-            "q_learning": self._logic_q_learning
+            "q_learning": self._logic_q_learning,
+            "custom": self._logic_custom # <--- Agente Personalizado
         }
         
         # Buscar la función adecuada (o usar reactive por defecto)
@@ -178,6 +208,18 @@ class SimulationEngine:
         # Placeholder
         return random.choice([(0,1), (0,-1), (1,0), (-1,0)])
 
+    def _logic_custom(self, agent, ws):
+        """Ejecuta el código Python enviado por el usuario."""
+        if not getattr(agent, "custom_code", None):
+             return 0, 0
+
+        # Construir percepción (lo que ve el agente)
+        perception = self._build_perception(agent)
+        
+        # Ejecutar en el Sandbox
+        dx, dy = execute_custom_agent_code(agent.custom_code, perception)
+        return dx, dy
+
     # --- HELPERS DE IA ---
     def _find_nearest_food(self, agent):
         target = None
@@ -203,7 +245,7 @@ class SimulationEngine:
         return algo(start, target, self.width, self.height, self.obstacles)
 
     # =========================================================================
-    #BUCLE PRINCIPAL (FÍSICA Y REGLAS)
+    # BUCLE PRINCIPAL (FÍSICA Y REGLAS)
     # =========================================================================
     def step(self):
         if self._check_stop_conditions():

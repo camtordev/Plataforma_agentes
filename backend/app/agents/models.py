@@ -11,7 +11,8 @@ class Agent:
         self.color = "#22d3ee" # Cyan por defecto
         self.type = "reactive" # Tipo de agente
         self.strategy = "bfs"  # Estrategia de búsqueda
-        
+        # Campo para guardar el código del usuario
+        self.custom_code = None
         # Propiedades de simulación
         self.speed = 1
         self.vision_radius = 5
