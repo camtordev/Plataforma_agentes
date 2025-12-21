@@ -49,20 +49,20 @@ class Project(Base):
     world_state = Column(JSONB)
     simulation_config = Column(JSONB)
 
+    # Tipo de agente (RF5.1 - para filtros y metadatos)
+    agent_type = Column(String(50), nullable=True)
+
+    # Nivel de dificultad (RF5.1 - para filtros y metadatos)
+    difficulty_level = Column(Integer, nullable=True)
+
     # Dificultad (RF5.3 - Filtros en galería)
     difficulty = Column(String(20))
 
-    # Estadísticas sociales (RF5.3)
-    views_count = Column(Integer, default=0, nullable=False)
-    likes_count = Column(Integer, default=0, nullable=False, index=True)
+    # Estadísticas sociales mínimas (solo forks_count)
     forks_count = Column(Integer, default=0, nullable=False)
-    comments_count = Column(Integer, default=0, nullable=False)
+    execution_count = Column(Integer, default=0, nullable=False)
 
-    # Metadata
-    version_count = Column(Integer, default=1, nullable=False)
-    last_opened_at = Column(DateTime)
-
-    # Timestamps
+    # Metadata (versionamiento eliminado)
     created_at = Column(DateTime, default=datetime.utcnow,
                         nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow,
@@ -71,8 +71,6 @@ class Project(Base):
 
     # Relaciones
     owner = relationship("User", back_populates="projects")
-    versions = relationship(
-        "ProjectVersion", back_populates="project", cascade="all, delete-orphan")
     shared_links = relationship(
         "SharedProject", back_populates="project", cascade="all, delete-orphan")
     collaborators = relationship(
@@ -97,50 +95,12 @@ class Project(Base):
         ),
         # Índice compuesto para galería pública
         Index('idx_projects_public_popular',
-              'is_public', 'likes_count', 'created_at'),
+              'is_public', 'created_at'),
         Index('idx_projects_user_created', 'user_id', 'created_at'),
     )
 
     def __repr__(self):
         return f"<Project(id={self.id}, title='{self.title}', owner_id={self.user_id})>"
-
-
-class ProjectVersion(Base):
-    """
-    Historial de versiones de proyectos (RF5.1 - Versionado)
-    Snapshots del código y estado del mundo para rollback
-    """
-    __tablename__ = "project_versions"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey(
-        'projects.id', ondelete='CASCADE'), nullable=False, index=True)
-    version_number = Column(Integer, nullable=False)
-
-    # Mensaje de commit (como Git)
-    commit_message = Column(String(500))
-
-    # Snapshot del proyecto
-    user_code = Column(Text, nullable=False)
-    world_state = Column(JSONB, nullable=False)
-    simulation_config = Column(JSONB)
-
-    # Metadata
-    created_by = Column(UUID(as_uuid=True), ForeignKey('users.id'))
-    created_at = Column(DateTime, default=datetime.utcnow,
-                        nullable=False, index=True)
-    file_size_bytes = Column(Integer)
-
-    # Relaciones
-    project = relationship("Project", back_populates="versions")
-
-    __table_args__ = (
-        Index('idx_versions_project_version',
-              'project_id', 'version_number', unique=True),
-    )
-
-    def __repr__(self):
-        return f"<ProjectVersion(id={self.id}, project_id={self.project_id}, v={self.version_number})>"
 
 
 class SharedProject(Base):
@@ -168,6 +128,12 @@ class SharedProject(Base):
 
     # Estado
     is_active = Column(Boolean, default=True, nullable=False)
+
+    # Permitir fork desde el enlace compartido
+    allow_fork = Column(Boolean, default=True, nullable=False)
+
+    # Permitir descarga desde el enlace compartido
+    allow_download = Column(Boolean, default=True, nullable=False)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

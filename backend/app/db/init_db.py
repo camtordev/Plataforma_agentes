@@ -1,13 +1,13 @@
-# backend/app/db/init_db.py
+﻿# backend/app/db/init_db.py
 """
 Script para inicializar la base de datos
-Crea las tablas y datos iniciales (roles, tutoriales, achievements)
+Crea las tablas y datos iniciales (roles)
 """
 from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.db.session import engine
 from app.db.models.user import Role
-from app.db.models.tutorial import Tutorial, Achievement
+from app.db.models.tutorial import Tutorial
 
 
 def init_db(db: Session) -> None:
@@ -19,10 +19,10 @@ def init_db(db: Session) -> None:
 
     # Verificar si ya existen datos
     if db.query(Role).first():
-        print("✅ La base de datos ya está inicializada")
+        print("⚠️ La base de datos ya está inicializada")
         return
 
-    print("🔨 Creando datos iniciales...")
+    print("🚀 Creando datos iniciales...")
 
     # ========================================
     # ROLES
@@ -66,72 +66,13 @@ def init_db(db: Session) -> None:
 
     print("✅ Roles creados: student, teacher, admin")
 
-    # ========================================
-    # ACHIEVEMENTS (Ejemplos)
-    # ========================================
-    achievements = [
-        Achievement(
-            name="Primer Paso",
-            slug="primer-paso",
-            description="Completa tu primer tutorial",
-            icon_url="/assets/achievements/first-step.png",
-            unlock_criteria={"type": "tutorial_completed", "tutorial_id": 1},
-            rarity="common",
-            points=10
-        ),
-        Achievement(
-            name="Explorador",
-            slug="explorador",
-            description="Completa todos los tutoriales de nivel básico",
-            icon_url="/assets/achievements/explorer.png",
-            unlock_criteria={"type": "tutorials_completed",
-                             "min_count": 3, "max_level": 3},
-            rarity="rare",
-            points=50
-        ),
-        Achievement(
-            name="Perfeccionista",
-            slug="perfeccionista",
-            description="Logra 95% de eficiencia en 5 tutoriales",
-            icon_url="/assets/achievements/perfectionist.png",
-            unlock_criteria={"type": "efficiency_master",
-                             "min_efficiency": 95, "count": 5},
-            rarity="epic",
-            points=100
-        ),
-        Achievement(
-            name="Velocista",
-            slug="velocista",
-            description="Completa un tutorial en tiempo récord",
-            icon_url="/assets/achievements/speedrunner.png",
-            unlock_criteria={"type": "speed_runner", "max_time_seconds": 300},
-            rarity="rare",
-            points=75
-        ),
-        Achievement(
-            name="Maestro IA",
-            slug="maestro-ia",
-            description="Completa todos los 8 tutoriales con éxito",
-            icon_url="/assets/achievements/master.png",
-            unlock_criteria={"type": "all_tutorials_completed"},
-            rarity="legendary",
-            points=500
-        )
-    ]
-
-    for achievement in achievements:
-        db.add(achievement)
-
-    print("✅ Logros creados: 5 achievements de ejemplo")
-
     # Commit de todos los cambios
     db.commit()
 
-    print("✨ ¡Base de datos inicializada correctamente!")
-    print("\n📊 Resumen:")
+    print("🎉 ¡Base de datos inicializada correctamente!")
+    print("\n🔎 Resumen:")
     print(f"  - {len(roles)} roles creados")
-    print(f"  - {len(achievements)} logros creados")
-    print("\n🚀 Ahora puedes ejecutar las migraciones de Alembic")
+    print("\nℹ️ Ahora puedes ejecutar las migraciones de Alembic")
 
 
 if __name__ == "__main__":

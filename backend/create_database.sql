@@ -216,43 +216,17 @@ CREATE INDEX idx_collaborators_project_id ON project_collaborators(project_id);
 CREATE INDEX idx_collaborators_user_id ON project_collaborators(user_id);
 
 -- ================================================================
--- 4. MÓDULO 3: TUTORIALES (4 tablas)
+-- 4. MÓDULO 3: TUTORIALES (2 tablas simplificadas)
 -- ================================================================
 
 -- Tabla: tutorials
 CREATE TABLE tutorials (
     id SERIAL PRIMARY KEY,
     level INTEGER UNIQUE NOT NULL,
-    title VARCHAR(200) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT NOT NULL,
-    
-    -- Contenido
-    theory_content TEXT,
-    diagram_url VARCHAR(500),
-    learning_objectives TEXT[],
-    
-    -- Configuración inicial
-    starter_code TEXT NOT NULL,
-    initial_world_state JSONB NOT NULL,
-    grid_config JSONB,
-    
-    -- Criterios de éxito
-    success_criteria JSONB NOT NULL,
-    
-    -- Metadata
-    difficulty VARCHAR(20) NOT NULL,
-    estimated_time_minutes INTEGER,
-    prerequisites INTEGER[],
-    tags VARCHAR(50)[],
-    
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    order_index INTEGER NOT NULL,
-    
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
-    
-    CONSTRAINT check_tutorial_difficulty CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
     CONSTRAINT check_tutorial_level CHECK (level >= 1 AND level <= 20)
 );
 
@@ -268,66 +242,19 @@ CREATE TABLE user_progress (
     
     status VARCHAR(20) NOT NULL DEFAULT 'not_started',
     current_code TEXT,
-    best_attempt_code TEXT,
-    
-    -- Estadísticas
-    attempts_count INTEGER NOT NULL DEFAULT 0,
     time_spent_seconds INTEGER NOT NULL DEFAULT 0,
-    lines_of_code INTEGER NOT NULL DEFAULT 0,
-    steps_to_solution INTEGER,
-    efficiency_score INTEGER,
-    
-    criteria_met JSONB,
     
     started_at TIMESTAMP DEFAULT NOW() NOT NULL,
     completed_at TIMESTAMP,
-    last_attempt_at TIMESTAMP,
     updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
     
     CONSTRAINT unique_user_progress UNIQUE(user_id, tutorial_id),
-    CONSTRAINT check_progress_status CHECK (status IN ('not_started', 'in_progress', 'completed', 'perfect')),
-    CONSTRAINT check_efficiency_range CHECK (efficiency_score IS NULL OR (efficiency_score >= 0 AND efficiency_score <= 100))
+    CONSTRAINT check_progress_status CHECK (status IN ('not_started', 'in_progress', 'completed'))
 );
 
 CREATE INDEX idx_progress_user_id ON user_progress(user_id);
 CREATE INDEX idx_progress_tutorial_id ON user_progress(tutorial_id);
 CREATE INDEX idx_progress_status ON user_progress(status);
-
--- Tabla: achievements
-CREATE TABLE achievements (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    slug VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT NOT NULL,
-    icon_url VARCHAR(500),
-    
-    unlock_criteria JSONB NOT NULL,
-    rarity VARCHAR(20) NOT NULL DEFAULT 'common',
-    points INTEGER NOT NULL DEFAULT 10,
-    
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT NOW() NOT NULL,
-    
-    CONSTRAINT check_achievement_rarity CHECK (rarity IN ('common', 'rare', 'epic', 'legendary'))
-);
-
-CREATE INDEX idx_achievements_slug ON achievements(slug);
-
--- Tabla: user_achievements
-CREATE TABLE user_achievements (
-    id SERIAL PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    achievement_id INTEGER NOT NULL REFERENCES achievements(id) ON DELETE CASCADE,
-    
-    unlocked_at TIMESTAMP DEFAULT NOW() NOT NULL,
-    notification_seen BOOLEAN NOT NULL DEFAULT FALSE,
-    progress_data JSONB,
-    
-    CONSTRAINT unique_user_achievement UNIQUE(user_id, achievement_id)
-);
-
-CREATE INDEX idx_user_achievements_user_id ON user_achievements(user_id);
-CREATE INDEX idx_user_achievements_unlocked_at ON user_achievements(unlocked_at);
 
 -- ================================================================
 -- 5. MÓDULO 4: MÉTRICAS (3 tablas)
@@ -481,19 +408,6 @@ INSERT INTO roles (id, name, description, permissions) VALUES
 (3, 'admin', 'Administrador con control total',
  '{"can_do_everything": true}'::jsonb);
 
--- Insertar achievements de ejemplo
-INSERT INTO achievements (name, slug, description, icon_url, unlock_criteria, rarity, points) VALUES
-('Primer Paso', 'primer-paso', 'Completa tu primer tutorial', '/assets/achievements/first-step.png',
- '{"type": "tutorial_completed", "tutorial_id": 1}'::jsonb, 'common', 10),
-('Explorador', 'explorador', 'Completa todos los tutoriales de nivel básico', '/assets/achievements/explorer.png',
- '{"type": "tutorials_completed", "min_count": 3, "max_level": 3}'::jsonb, 'rare', 50),
-('Perfeccionista', 'perfeccionista', 'Logra 95% de eficiencia en 5 tutoriales', '/assets/achievements/perfectionist.png',
- '{"type": "efficiency_master", "min_efficiency": 95, "count": 5}'::jsonb, 'epic', 100),
-('Velocista', 'velocista', 'Completa un tutorial en tiempo récord', '/assets/achievements/speedrunner.png',
- '{"type": "speed_runner", "max_time_seconds": 300}'::jsonb, 'rare', 75),
-('Maestro IA', 'maestro-ia', 'Completa todos los 8 tutoriales con éxito', '/assets/achievements/master.png',
- '{"type": "all_tutorials_completed"}'::jsonb, 'legendary', 500);
-
 -- ================================================================
 -- 8. VERIFICACIÓN
 -- ================================================================
@@ -508,18 +422,15 @@ WHERE schemaname = 'public'
 ORDER BY tablename;
 
 -- Contar registros iniciales
-SELECT 'roles' as table_name, COUNT(*) as count FROM roles
-UNION ALL
-SELECT 'achievements', COUNT(*) FROM achievements;
+SELECT 'roles' as table_name, COUNT(*) as count FROM roles;
 
 -- ================================================================
 -- FIN DEL SCRIPT
 -- ================================================================
 
 -- Resumen:
--- ✅ 14 tablas creadas
+-- ✅ 12 tablas creadas
 -- ✅ 3 roles insertados (student, teacher, admin)
--- ✅ 5 achievements de ejemplo
 -- ✅ Índices para performance
 -- ✅ Constraints de validación
 -- ✅ Triggers automáticos

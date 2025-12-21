@@ -3,12 +3,26 @@ import asyncio
 from app.websockets.connection_manager import manager
 from app.websockets.events import process_command
 from app.services.game_instance import get_engine
+from app.db.session import SessionLocal
+from app.db.models.project import Project
 
 router = APIRouter()
-engine = get_engine()
 
 @router.websocket("/ws/simulacion")
 async def websocket_endpoint(websocket: WebSocket):
+    project_id = websocket.query_params.get("project")
+    engine = get_engine(project_id)
+
+    # Si hay project_id y el motor está vacío, hidratar con world_state guardado
+    if project_id and not (engine.agents or engine.food or engine.obstacles):
+        session = SessionLocal()
+        try:
+            project = session.query(Project).filter(Project.id == project_id).first()
+            if project and project.world_state:
+                engine.load_state(project.world_state)
+        finally:
+            session.close()
+
     await manager.connect(websocket)
     print("✅ Cliente conectado (Modular)")
     
@@ -31,7 +45,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = raw_data.get("data", {})
                 
                 # 2. Procesar
-                new_state = await process_command(cmd_type, data)
+                new_state = await process_command(engine, cmd_type, data)
                 
                 # 3. Responder
                 await manager.send_personal_message(new_state, websocket)

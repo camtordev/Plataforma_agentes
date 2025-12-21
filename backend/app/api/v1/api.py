@@ -1,6 +1,16 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import tutorials, tutorial_progress
+from app.api.v1.endpoints import tutorials, projects, auth
 
 api_router = APIRouter()
-api_router.include_router(tutorials.router)
-api_router.include_router(tutorial_progress.router)
+
+# Rutas de autenticación
+api_router.include_router(
+    auth.router, prefix="/auth", tags=["auth"])
+
+# Rutas de tutoriales
+api_router.include_router(
+    tutorials.router, prefix="/tutorials", tags=["tutorials"])
+
+# Rutas de proyectos (RF5)
+api_router.include_router(
+    projects.router, prefix="/projects", tags=["projects"])
