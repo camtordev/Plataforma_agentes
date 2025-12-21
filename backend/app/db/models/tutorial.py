@@ -44,9 +44,15 @@ class UserProgress(Base):
         'tutorials.id', ondelete='CASCADE'), nullable=False, index=True)
 
     status = Column(String(20), default='not_started', nullable=False)
-    current_code = Column(Text)
+    # 'not_started', 'in_progress', 'completed'
+
+    # Código del usuario
+    current_code = Column(Text)  # Auto-guardado
+
+    # Tiempo empleado en segundos
     time_spent_seconds = Column(Integer, default=0, nullable=False)
 
+    # Timestamps
     started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     completed_at = Column(DateTime)
     updated_at = Column(DateTime, default=datetime.utcnow,

@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     """Configuración de la aplicación"""
 
     # === DATABASE ===
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/agentes_db"
+    # Conexión con configuración de encoding explícita
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/agents_db?client_encoding=utf8"
 
     # === JWT AUTHENTICATION ===
     SECRET_KEY: str = "tu-clave-secreta-super-segura-cambiar-en-produccion-2025"

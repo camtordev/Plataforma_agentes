@@ -1,25 +1,11 @@
 -- ================================================================
 -- PLATAFORMA EDUCATIVA MULTI-AGENTE
--- Script de Creación de Base de Datos para PostgreSQL
--- Ejecutar en pgAdmin 4 o psql
+-- Script de Creación de Tablas para PostgreSQL
+-- Ejecutar en pgAdmin 4 dentro de la base de datos 'agentes_db'
 -- ================================================================
 
--- ================================================================
--- 1. CREAR BASE DE DATOS (ejecutar en database 'postgres')
--- ================================================================
--- Si la BD ya existe, comentar estas líneas
-DROP DATABASE IF EXISTS agentes_db;
-CREATE DATABASE agentes_db
-    WITH 
-    OWNER = postgres
-    ENCODING = 'UTF8'
-    LC_COLLATE = 'Spanish_Spain.1252'
-    LC_CTYPE = 'Spanish_Spain.1252'
-    TABLESPACE = pg_default
-    CONNECTION LIMIT = -1;
-
--- Conectar a la nueva base de datos antes de continuar
-\c agentes_db;
+-- NOTA: Este script debe ejecutarse dentro de la base de datos 'agentes_db'
+-- En pgAdmin: Click derecho en 'agentes_db' → Query Tool → Pegar este script
 
 -- Habilitar extensión UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
