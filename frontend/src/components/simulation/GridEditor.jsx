@@ -83,10 +83,12 @@ const GridEditor = ({ hideControls = false }) => {
       <Sidebar onSelectElement={setActiveBrushItem} />
 
       {/* 2. Área Central */}
-      <div className="flex-1 flex flex-col relative h-full">
-        <div className="p-2 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur z-20 flex justify-center shrink-0">
-          <SimulationControls />
-        </div>
+      <div className="flex-1 flex flex-col relative h-full min-h-0">
+        {!hideControls && (
+          <div className="p-2 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur z-20 flex justify-center shrink-0">
+            <SimulationControls />
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto bg-black/50 p-8 relative flex items-center justify-center">
           <div

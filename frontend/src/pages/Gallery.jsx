@@ -40,13 +40,13 @@ const Gallery = () => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
-      skip: 0, // Reset paginación al cambiar filtros
+      skip: 0, // Reset paginaciÛn al cambiar filtros
     }));
   };
 
   const handleFork = async (projectId) => {
     if (!user) {
-      toast.error("Debes iniciar sesión para hacer fork");
+      toast.error("Debes iniciar sesiÛn para hacer fork");
       return;
     }
 
@@ -89,9 +89,13 @@ const Gallery = () => {
               >
                 <option value="">Todos</option>
                 <option value="reactive">Reactivo</option>
-                <option value="goal_based">Basado en Objetivos</option>
-                <option value="utility">Utilidad</option>
-                <option value="model_based">Basado en Modelos</option>
+                <option value="explorer">Explorador</option>
+                <option value="collector">Recolector</option>
+                <option value="cooperative">Cooperativo</option>
+                <option value="competitive">Competitivo</option>
+                <option value="q_learning">Q-Learning</option>
+                <option value="custom">Personalizado</option>
+                <option value="mixed">Mixed</option>
               </select>
             </div>
 
@@ -108,11 +112,11 @@ const Gallery = () => {
                 className="w-full px-4 py-2 border border-zinc-700 bg-zinc-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Todas</option>
-                <option value="1">⭐ Principiante</option>
-                <option value="2">⭐⭐ Fácil</option>
-                <option value="3">⭐⭐⭐ Intermedio</option>
-                <option value="4">⭐⭐⭐⭐ Avanzado</option>
-                <option value="5">⭐⭐⭐⭐⭐ Experto</option>
+                <option value="1">★ Principiante</option>
+                <option value="2">★★ Fácil</option>
+                <option value="3">★★★ Intermedio</option>
+                <option value="4">★★★★ Avanzado</option>
+                <option value="5">★★★★★ Experto</option>
               </select>
             </div>
 
@@ -168,7 +172,7 @@ const Gallery = () => {
                   {/* Badge de dificultad */}
                   {project.difficulty_level && (
                     <span className="absolute top-2 right-2 bg-zinc-800 px-2 py-1 rounded text-sm font-medium text-white border border-zinc-700">
-                      {"⭐".repeat(project.difficulty_level)}
+                      {"★".repeat(project.difficulty_level)}
                     </span>
                   )}
                 </div>
@@ -190,22 +194,16 @@ const Gallery = () => {
                     </span>
                   )}
 
-                  {/* Stats */}
-                  <div className="flex items-center justify-between text-sm text-zinc-400 mb-4">
-                    <span>▶ {project.execution_count} ejecuciones</span>
-                    <span>🍴 {project.forks_count} forks</span>
-                  </div>
-
-                    {/* Acciones */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() =>
+                  {/* Acciones */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
                         (window.location.href = `/workspace?project=${project.id}&readonly=1`)
-                        }
-                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Ver Proyecto
-                      </button>
+                      }
+                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Ver Proyecto
+                    </button>
 
                     {user && (
                       <button
@@ -213,7 +211,7 @@ const Gallery = () => {
                         className="bg-zinc-700 text-white px-4 py-2 rounded-lg hover:bg-zinc-600 transition-colors"
                         title="Clonar proyecto"
                       >
-                        🍴
+                        Clonar
                       </button>
                     )}
                   </div>
@@ -223,7 +221,7 @@ const Gallery = () => {
           </div>
         )}
 
-        {/* Paginación */}
+        {/* PaginaciÛn */}
         {projects.length >= filters.limit && (
           <div className="mt-8 flex justify-center">
             <button
@@ -235,7 +233,7 @@ const Gallery = () => {
               }
               className="bg-zinc-900 px-6 py-3 rounded-lg shadow hover:shadow-lg transition-shadow text-white font-medium border border-zinc-800"
             >
-              Cargar más proyectos
+              Cargar m·s proyectos
             </button>
           </div>
         )}

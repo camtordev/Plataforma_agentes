@@ -161,6 +161,10 @@ async def update_project(
     for field, value in update_data.items():
         setattr(project, field, value)
 
+    # Sincronizar config de simulación si se envía en el payload
+    if project_data.simulation_config is not None:
+        project.simulation_config = project_data.simulation_config
+
     project.updated_at = datetime.utcnow()
 
     db.commit()
@@ -308,17 +312,18 @@ async def fork_project(
             detail="No tienes permisos para hacer fork de este proyecto"
         )
 
-    # Capturar estado vivo del motor antes de copiar
+    # Capturar estado vivo del motor antes de copiar (solo si hay datos)
     try:
         engine = get_engine(project_id)
         state = engine.get_state().get("data", {})
-        original_project.world_state = state
-        original_project.grid_width = state.get(
-            "width", original_project.grid_width)
-        original_project.grid_height = state.get(
-            "height", original_project.grid_height)
-        if "config" in state:
-            original_project.simulation_config = state.get("config")
+        if state.get("agents") or state.get("food") or state.get("obstacles"):
+            original_project.world_state = state
+            original_project.grid_width = state.get(
+                "width", original_project.grid_width)
+            original_project.grid_height = state.get(
+                "height", original_project.grid_height)
+            if "config" in state:
+                original_project.simulation_config = state.get("config")
     except Exception:
         pass
 

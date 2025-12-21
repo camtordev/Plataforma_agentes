@@ -75,7 +75,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     project.grid_width = state.get("width", project.grid_width)
                     project.grid_height = state.get("height", project.grid_height)
                     if "config" in state:
-                        project.simulation_config = state.get("config")
+                        existing_cfg = project.simulation_config or {}
+                        incoming_cfg = state.get("config") or {}
+                        # Merge para no perder metadatos como agentPlan
+                        merged_cfg = {**existing_cfg, **incoming_cfg}
+                        project.simulation_config = merged_cfg
                     session.commit()
             finally:
                 session.close()
