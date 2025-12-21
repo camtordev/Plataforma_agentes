@@ -237,6 +237,37 @@ export default function TutorialLevelModal({
             {/* TEORÍA */}
             {tab === "TEORIA" && (
               <div className="grid lg:grid-cols-3 gap-4">
+                {/* OBJETIVOS DE APRENDIZAJE */}
+                {level.learningObjectives &&
+                  level.learningObjectives.length > 0 && (
+                    <div className="lg:col-span-3 bg-gradient-to-br from-blue-950/40 to-purple-950/40 border border-blue-800/50 rounded-xl p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-2xl">🎯</span>
+                        <div className="text-white font-bold text-lg">
+                          Objetivos de Aprendizaje
+                        </div>
+                      </div>
+                      <p className="text-sm text-zinc-300 mb-4">
+                        Al completar este nivel, serás capaz de:
+                      </p>
+                      <ul className="space-y-2">
+                        {level.learningObjectives.map((obj, i) => (
+                          <li
+                            key={i}
+                            className="flex items-start gap-3 text-zinc-200"
+                          >
+                            <span className="text-blue-400 font-bold mt-0.5 shrink-0">
+                              ✓
+                            </span>
+                            <span className="text-sm leading-relaxed">
+                              {obj}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                 {level.theoryCards.map((card, i) => (
                   <div
                     key={i}
