@@ -5,7 +5,7 @@
 
 import { getToken } from "./authService";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+const API_URL = import.meta.env.VITE_API_URL || "http://3.228.25.217/api/v1";
 
 /**
  * Helper para hacer peticiones autenticadas

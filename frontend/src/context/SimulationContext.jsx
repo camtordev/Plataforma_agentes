@@ -84,8 +84,8 @@ export function SimulationProvider({ children, projectId, readOnly = false }) {
 
   useEffect(() => {
     const WS_URL = projectId
-      ? `ws://localhost:8000/ws/simulacion?project=${projectId}`
-      : "ws://localhost:8000/ws/simulacion";
+      ? `ws://3.228.25.217/ws/simulacion?project=${projectId}`
+      : "ws://3.228.25.217/ws/simulacion";
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       return;
