@@ -44,15 +44,12 @@ class UserProgress(Base):
         'tutorials.id', ondelete='CASCADE'), nullable=False, index=True)
 
     status = Column(String(20), default='not_started', nullable=False)
-    # 'not_started', 'in_progress', 'completed', 'perfect'
+    # 'not_started', 'in_progress', 'completed'
 
     # Código del usuario
     current_code = Column(Text)  # Auto-guardado
-    best_attempt_code = Column(Text)  # Mejor intento
 
-    # Estadísticas (RF4.2)
-    attempts_count = Column(Integer, default=0, nullable=False)
-    # Solo guardamos tiempo empleado
+    # Tiempo empleado en segundos
     time_spent_seconds = Column(Integer, default=0, nullable=False)
 
     # Timestamps

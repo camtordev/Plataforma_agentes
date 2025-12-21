@@ -5,14 +5,11 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from uuid import UUID
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_active_user
 from app.db.models.user import User
 from app.db.models.tutorial import Tutorial, UserProgress
 
 router = APIRouter(prefix="/tutorials", tags=["tutorial-progress"])
-
-# TEMPORAL: Usuario hardcodeado para testing sin login
-TEST_USER_ID = UUID("b450f971-2ec9-477a-8035-51ab5f9de556")  # estudiante1
 
 
 # ========================
@@ -50,21 +47,22 @@ class CompleteTutorialRequest(BaseModel):
 @router.get("/{level}/progress", response_model=ProgressResponse)
 def get_tutorial_progress(
     level: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     """
-    Obtiene el progreso del usuario en un tutorial específico.
+    Obtiene el progreso del usuario autenticado en un tutorial específico.
     Si no existe progreso, devuelve status='not_started'.
-    TEMPORAL: Sin autenticación, usa usuario de prueba.
+    Requiere autenticación JWT.
     """
     # Buscar tutorial por nivel
     tutorial = db.query(Tutorial).filter(Tutorial.level == level).first()
     if not tutorial:
         raise HTTPException(status_code=404, detail=f"Tutorial nivel {level} no encontrado")
     
-    # Buscar progreso del usuario
+    # Buscar progreso del usuario autenticado
     progress = db.query(UserProgress).filter(
-        UserProgress.user_id == TEST_USER_ID,
+        UserProgress.user_id == current_user.id,
         UserProgress.tutorial_id == tutorial.id
     ).first()
     
@@ -90,20 +88,21 @@ def get_tutorial_progress(
 def start_tutorial(
     level: int,
     request: StartTutorialRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     Inicia un tutorial, crea el registro de progreso con status='in_progress'.
     Si ya existe, solo actualiza a 'in_progress'.
-    TEMPORAL: Sin autenticación, usa usuario de prueba.
+    Requiere autenticación JWT.
     """
     tutorial = db.query(Tutorial).filter(Tutorial.level == level).first()
     if not tutorial:
         raise HTTPException(status_code=404, detail=f"Tutorial nivel {level} no encontrado")
     
-    # Verificar si ya existe progreso
+    # Verificar si ya existe progreso para el usuario autenticado
     progress = db.query(UserProgress).filter(
-        UserProgress.user_id == TEST_USER_ID,
+        UserProgress.user_id == current_user.id,
         UserProgress.tutorial_id == tutorial.id
     ).first()
     
@@ -114,12 +113,12 @@ def start_tutorial(
             db.commit()
             db.refresh(progress)
     else:
-        # Crear nuevo registro
+        # Crear nuevo registro para el usuario autenticado
         progress = UserProgress(
-            user_id=TEST_USER_ID,
+            user_id=current_user.id,
             tutorial_id=tutorial.id,
             status="in_progress",
-            current_code=request.initial_code or tutorial.starter_code,
+            current_code=request.initial_code or "",
             time_spent_seconds=0,
             started_at=datetime.utcnow()
         )
@@ -140,19 +139,20 @@ def start_tutorial(
 def autosave_tutorial(
     level: int,
     request: AutosaveRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     Guarda automáticamente el código y tiempo acumulado.
     El frontend envía el tiempo total cada vez.
-    TEMPORAL: Sin autenticación, usa usuario de prueba.
+    Requiere autenticación JWT.
     """
     tutorial = db.query(Tutorial).filter(Tutorial.level == level).first()
     if not tutorial:
         raise HTTPException(status_code=404, detail=f"Tutorial nivel {level} no encontrado")
     
     progress = db.query(UserProgress).filter(
-        UserProgress.user_id == TEST_USER_ID,
+        UserProgress.user_id == current_user.id,
         UserProgress.tutorial_id == tutorial.id
     ).first()
     
@@ -182,19 +182,20 @@ def autosave_tutorial(
 def complete_tutorial(
     level: int,
     request: CompleteTutorialRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     Marca el tutorial como completado.
     Guarda el código final y el tiempo total empleado.
-    TEMPORAL: Sin autenticación, usa usuario de prueba.
+    Requiere autenticación JWT.
     """
     tutorial = db.query(Tutorial).filter(Tutorial.level == level).first()
     if not tutorial:
         raise HTTPException(status_code=404, detail=f"Tutorial nivel {level} no encontrado")
     
     progress = db.query(UserProgress).filter(
-        UserProgress.user_id == TEST_USER_ID,
+        UserProgress.user_id == current_user.id,
         UserProgress.tutorial_id == tutorial.id
     ).first()
     

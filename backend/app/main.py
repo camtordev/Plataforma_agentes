@@ -22,7 +22,6 @@ app.include_router(api_router, prefix="/api/v1")
 
 # Incluimos el router del WebSocket
 app.include_router(simulation_ws.router)
-app.include_router(api_v1.api_router, prefix="/api/v1")
 
 
 @app.get("/")

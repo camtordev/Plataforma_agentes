@@ -1,24 +1,32 @@
-import { useEffect, useMemo, useState } from "react"
-import Navbar from "../components/layout/Navbar"
-import { TUTORIAL_LEVELS } from "../content/tutorialsData"
-import TutorialLevelModal from "../components/tutorials/TutorialLevelModal"
-
-const STORAGE_KEY = "static_tutorials_progress_v2"
+import { useEffect, useMemo, useState } from "react";
+import Navbar from "../components/layout/Navbar";
+import { TUTORIAL_LEVELS } from "../content/tutorialsData";
+import TutorialLevelModal from "../components/tutorials/TutorialLevelModal";
+import { useAllTutorialsProgress } from "../hooks/useTutorialProgress";
+import { completeTutorial, startTutorial } from "../services/tutorialService";
+import { useAuth } from "../context/AuthContext";
 
 function safeParse(raw, fallback) {
   try {
-    const v = JSON.parse(raw)
-    return v ?? fallback
+    const v = JSON.parse(raw);
+    return v ?? fallback;
   } catch {
-    return fallback
+    return fallback;
   }
 }
 
 export default function Tutorials() {
-  const [openId, setOpenId] = useState(null)
-  const [tab, setTab] = useState("TEORIA")
-  const [toast, setToast] = useState(null)
+  const { user } = useAuth();
+  const [openId, setOpenId] = useState(null);
+  const [tab, setTab] = useState("TEORIA");
+  const [toast, setToast] = useState(null);
 
+  // Clave de localStorage específica por usuario
+  const STORAGE_KEY = user
+    ? `tutorials_progress_user_${user.id}`
+    : "tutorials_progress_guest";
+
+  // Estado local para quiz/práctica (inmediato)
   const [progress, setProgress] = useState(() =>
     safeParse(localStorage.getItem(STORAGE_KEY), {
       completed: {},
@@ -30,70 +38,126 @@ export default function Tutorials() {
       codePassed: {},
       codeMissing: {},
     })
-  )
+  );
+
+  // Progreso global desde backend (persistente)
+  const {
+    progressMap,
+    stats,
+    loading: backendLoading,
+    error: backendError,
+    refresh: refreshBackend,
+  } = useAllTutorialsProgress();
+
+  // Guardar progreso local en localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  }, [progress, STORAGE_KEY]);
+
+  // Recargar progreso local cuando cambia el usuario
+  useEffect(() => {
+    const newProgress = safeParse(localStorage.getItem(STORAGE_KEY), {
+      completed: {},
+      answers: {},
+      quizChecked: {},
+      quizPassed: {},
+      drafts: {},
+      codeChecked: {},
+      codePassed: {},
+      codeMissing: {},
+    });
+    setProgress(newProgress);
+  }, [user?.id, STORAGE_KEY]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress))
-  }, [progress])
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 2500)
-    return () => clearTimeout(t)
-  }, [toast])
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const currentLevel = useMemo(
     () => TUTORIAL_LEVELS.find((x) => x.id === openId) || null,
     [openId]
-  )
+  );
 
-  const completedCount = useMemo(
-    () => TUTORIAL_LEVELS.reduce((acc, l) => acc + (progress.completed?.[l.id] ? 1 : 0), 0),
-    [progress.completed]
-  )
-  const overallPct = useMemo(
-    () => Math.round((completedCount / TUTORIAL_LEVELS.length) * 100),
-    [completedCount]
-  )
+  // Usar stats del backend para progreso global
+  const completedCount = stats.completed;
+  const overallPct = stats.completionPercentage;
 
   function isUnlocked(levelObj) {
-    if (levelObj.level === 1) return true
-    const prev = TUTORIAL_LEVELS.find((x) => x.level === levelObj.level - 1)
-    if (!prev) return true
-    return !!progress.completed?.[prev.id]
+    if (levelObj.level === 1) return true;
+    const prevLevel = levelObj.level - 1;
+    // Verificar en backend si el nivel anterior está completado
+    return progressMap[prevLevel]?.status === "completed";
   }
 
   function getStatus(levelObj) {
-    if (progress.completed?.[levelObj.id]) return "COMPLETED"
-    if (!isUnlocked(levelObj)) return "LOCKED"
-    if (progress.quizPassed?.[levelObj.id] || progress.codePassed?.[levelObj.id]) return "IN_PROGRESS"
-    return "AVAILABLE"
+    const backendStatus = progressMap[levelObj.level]?.status || "not_started";
+
+    // Verificar en backend primero
+    if (backendStatus === "completed") return "COMPLETED";
+    if (!isUnlocked(levelObj)) return "LOCKED";
+    if (backendStatus === "in_progress") return "IN_PROGRESS";
+
+    // Considerar progreso local también
+    if (
+      progress.quizPassed?.[levelObj.id] ||
+      progress.codePassed?.[levelObj.id]
+    ) {
+      return "IN_PROGRESS";
+    }
+
+    return "AVAILABLE";
   }
 
   function openLevel(levelObj) {
     if (!isUnlocked(levelObj) && !progress.completed?.[levelObj.id]) {
-      setToast("🔒 Completa el nivel anterior para desbloquear este.")
-      return
+      setToast("🔒 Completa el nivel anterior para desbloquear este.");
+      return;
     }
-    setOpenId(levelObj.id)
-    setTab("TEORIA")
+    setOpenId(levelObj.id);
+    setTab("TEORIA");
   }
 
   function closeModal() {
-    setOpenId(null)
+    setOpenId(null);
   }
 
-  function completeLevel(levelObj) {
-    setProgress((p) => ({
-      ...p,
-      completed: { ...(p.completed || {}), [levelObj.id]: true },
-    }))
-    setToast("🏁 Nivel completado. ¡Se desbloqueó el siguiente!")
-    closeModal()
+  async function completeLevel(levelObj, finalCode, timeSpent) {
+    try {
+      // 1. Actualizar local inmediatamente (UI responsiva)
+      setProgress((p) => ({
+        ...p,
+        completed: { ...(p.completed || {}), [levelObj.id]: true },
+      }));
+
+      // 2. Iniciar progreso si no existe (necesario para completar)
+      const backendStatus = progressMap[levelObj.level]?.status;
+      if (!backendStatus || backendStatus === "not_started") {
+        await startTutorial(levelObj.level, finalCode || "");
+      }
+
+      // 3. Guardar en backend como completado
+      await completeTutorial(levelObj.level, finalCode || "", timeSpent || 0);
+
+      // 4. Refrescar progreso global
+      await refreshBackend();
+
+      setToast(
+        "🏁 Nivel completado y guardado en el servidor. ¡Se desbloqueó el siguiente!"
+      );
+      closeModal();
+    } catch (err) {
+      console.error("Error completing level:", err);
+      setToast(
+        "⚠️ Nivel completado localmente. Error al sincronizar con servidor."
+      );
+      closeModal();
+    }
   }
 
   function resetAll() {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(STORAGE_KEY);
     setProgress({
       completed: {},
       answers: {},
@@ -103,8 +167,8 @@ export default function Tutorials() {
       codeChecked: {},
       codePassed: {},
       codeMissing: {},
-    })
-    setToast("Progreso reiniciado.")
+    });
+    setToast("Progreso reiniciado.");
   }
 
   return (
@@ -117,24 +181,34 @@ export default function Tutorials() {
         </div>
       )}
 
+      {backendError && (
+        <div className="fixed top-16 right-4 z-50 px-4 py-3 rounded-lg bg-red-900 border border-red-700 text-red-100 shadow">
+          ⚠️ Sin conexión al servidor: {backendError}
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-10">
           <div>
             <h1 className="text-4xl font-bold text-white mb-2">Tutoriales</h1>
             <p className="text-zinc-400">
-              8 niveles con teoría, práctica guiada y quizzes. Progreso se guardará automaticamente.
+              8 niveles con teoría, práctica guiada y quizzes. Progreso guardado
+              en el servidor.
             </p>
           </div>
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-w-[280px]">
             <div className="flex justify-between text-sm text-zinc-200">
-              <span>Progreso general</span>
+              <span>Progreso general {backendLoading && "(cargando...)"}</span>
               <span className="text-zinc-400">
                 {completedCount}/{TUTORIAL_LEVELS.length} ({overallPct}%)
               </span>
             </div>
             <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden mt-2">
-              <div className="h-full bg-blue-500" style={{ width: `${overallPct}%` }} />
+              <div
+                className="h-full bg-blue-500"
+                style={{ width: `${overallPct}%` }}
+              />
             </div>
             <button
               onClick={resetAll}
@@ -147,8 +221,8 @@ export default function Tutorials() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {TUTORIAL_LEVELS.map((lvl) => {
-            const st = getStatus(lvl)
-            const locked = st === "LOCKED"
+            const st = getStatus(lvl);
+            const locked = st === "LOCKED";
             const badge =
               st === "COMPLETED"
                 ? "border-emerald-700 text-emerald-200 bg-emerald-900/20"
@@ -156,10 +230,12 @@ export default function Tutorials() {
                 ? "border-amber-700 text-amber-200 bg-amber-900/20"
                 : st === "LOCKED"
                 ? "border-zinc-700 text-zinc-300 bg-zinc-900/50"
-                : "border-blue-700 text-blue-200 bg-blue-900/20"
+                : "border-blue-700 text-blue-200 bg-blue-900/20";
 
-            const checklistDone = (progress.codePassed?.[lvl.id] ? 1 : 0) + (progress.quizPassed?.[lvl.id] ? 1 : 0)
-            const checklistPct = Math.round((checklistDone / 2) * 100)
+            const checklistDone =
+              (progress.codePassed?.[lvl.id] ? 1 : 0) +
+              (progress.quizPassed?.[lvl.id] ? 1 : 0);
+            const checklistPct = Math.round((checklistDone / 2) * 100);
 
             return (
               <button
@@ -167,7 +243,9 @@ export default function Tutorials() {
                 onClick={() => openLevel(lvl)}
                 className={[
                   "text-left group bg-zinc-900 border rounded-xl p-6 transition-all relative",
-                  locked ? "border-zinc-800 opacity-60" : "border-zinc-800 hover:border-blue-500",
+                  locked
+                    ? "border-zinc-800 opacity-60"
+                    : "border-zinc-800 hover:border-blue-500",
                 ].join(" ")}
               >
                 <div className="flex items-start justify-between gap-3 mb-4">
@@ -176,11 +254,19 @@ export default function Tutorials() {
                       {lvl.level}
                     </div>
                     <div>
-                      <div className="text-xs text-zinc-500">Nivel {lvl.level}</div>
-                      <div className="text-xs text-zinc-500">{lvl.estimatedMinutes} min aprox.</div>
+                      <div className="text-xs text-zinc-500">
+                        Nivel {lvl.level}
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        {lvl.estimatedMinutes} min aprox.
+                      </div>
                     </div>
                   </div>
-                  <div className={`text-xs px-2 py-1 rounded-full border ${badge}`}>{st}</div>
+                  <div
+                    className={`text-xs px-2 py-1 rounded-full border ${badge}`}
+                  >
+                    {st}
+                  </div>
                 </div>
 
                 <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">
@@ -194,10 +280,15 @@ export default function Tutorials() {
                     <span>{checklistDone}/2</span>
                   </div>
                   <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden mt-2">
-                    <div className="h-full bg-blue-500" style={{ width: `${checklistPct}%` }} />
+                    <div
+                      className="h-full bg-blue-500"
+                      style={{ width: `${checklistPct}%` }}
+                    />
                   </div>
                   <div className="mt-2 text-xs text-zinc-500">
-                    {locked ? "Completa el nivel anterior para desbloquear." : "Abrir para estudiar y resolver."}
+                    {locked
+                      ? "Completa el nivel anterior para desbloquear."
+                      : "Abrir para estudiar y resolver."}
                   </div>
                 </div>
 
@@ -209,7 +300,7 @@ export default function Tutorials() {
                   </div>
                 )}
               </button>
-            )
+            );
           })}
         </div>
       </div>
@@ -228,5 +319,5 @@ export default function Tutorials() {
         />
       )}
     </div>
-  )
+  );
 }
