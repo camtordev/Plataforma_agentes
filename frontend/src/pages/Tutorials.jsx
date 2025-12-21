@@ -210,12 +210,7 @@ export default function Tutorials() {
                 style={{ width: `${overallPct}%` }}
               />
             </div>
-            <button
-              onClick={resetAll}
-              className="mt-3 w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-200 hover:border-zinc-700 text-sm"
-            >
-              Reiniciar progreso
-            </button>
+            
           </div>
         </div>
 
