@@ -12,8 +12,17 @@ export const TUTORIAL_LEVELS = [
       "Aprende los conceptos fundamentales de agentes inteligentes: definición, estructura, ciclo de vida y cómo interactúan con su entorno a través del ciclo percibir → razonar → actuar.",
     estimatedMinutes: 18,
 
+    learningObjectives: [
+      "Comprender el ciclo básico de un agente: Percibir → Razonar → Actuar",
+      "Implementar una función de decisión que retorne una acción válida",
+      "Conocer las acciones válidas del entorno: UP, DOWN, LEFT, RIGHT, STAY",
+      "Aplicar estructura correcta con parámetros y retorno apropiado",
+      "Diferenciar entre observación (entrada) y acción (salida)",
+    ],
+
     diagram: {
       title: "Diagrama: ciclo del agente",
+      image: "/diagrams/flujoNivel1.jpeg",
       ascii: `
 +-------------------+
 |      ENTORNO       |
@@ -212,8 +221,17 @@ def act(observation):
       "Aprende a implementar agentes reactivos simples basados en reglas condicionadas. Desarrolla un robot limpiador que responde directamente a percepciones del entorno sin utilizar memoria o planificación.",
     estimatedMinutes: 20,
 
+    learningObjectives: [
+      "Implementar reglas condicionales simples usando if/else para tomar decisiones",
+      "Responder a percepciones inmediatas sin usar memoria del pasado",
+      "Manejar importaciones de módulos correctamente (import random)",
+      "Implementar comportamiento estocástico con random.choice()",
+      "Aplicar arquitectura reactiva: decisiones basadas únicamente en el estímulo presente",
+    ],
+
     diagram: {
       title: "Diagrama: regla reactiva del limpiador",
+      image: "/diagrams/flujoNivel2.jpeg",
       ascii: `
           +------------------+
           | percibir suciedad|
@@ -347,8 +365,17 @@ def decidir_y_actuar(percepcion):
       "Implementa agentes con memoria interna para evitar loops. Aprende a usar estructuras de datos (set) para rastrear posiciones visitadas y mejorar la exploración del entorno.",
     estimatedMinutes: 22,
 
+    learningObjectives: [
+      "Implementar estado interno manteniendo información entre decisiones",
+      "Usar estructuras de datos eficientes: set() para búsquedas O(1)",
+      "Trabajar con tuplas inmutables (x, y) en vez de listas [x, y]",
+      "Evitar loops infinitos rastreando posiciones visitadas",
+      "Actualizar estado dinámicamente conforme el agente interactúa con el entorno",
+    ],
+
     diagram: {
       title: "Diagrama: actualización con memoria",
+      image: "/diagrams/flujoNivel3.jpeg",
       ascii: `
 +-------------------+
 | percibir entorno   |
@@ -487,8 +514,18 @@ def decidir_y_actuar(percepcion):
       "Implementa agentes que planifican secuencias de acciones para alcanzar objetivos. Aprende el algoritmo BFS (Breadth-First Search) para encontrar caminos óptimos en grids y ejecutar planes paso a paso.",
     estimatedMinutes: 28,
 
+    learningObjectives: [
+      "Implementar BFS (Breadth-First Search): algoritmo completo y óptimo",
+      "Usar estructuras especializadas: deque para colas FIFO eficientes",
+      "Diferenciar BFS de DFS: popleft() es FIFO, pop() es LIFO",
+      "Planificar secuencias de acciones desde inicio hasta objetivo",
+      "Garantizar optimalidad: BFS encuentra el camino más corto en grafos no ponderados",
+      "Evitar ciclos usando conjuntos de visitados",
+    ],
+
     diagram: {
       title: "Diagrama: agente basado en objetivos con BFS",
+      image: "/diagrams/flujoNivel4.png",
       ascii: `
 +------------------------+
 | ¿tengo plan? (camino)  |
@@ -644,8 +681,18 @@ def planificar_ruta(x0, y0, objetivo, entorno):
       "Optimiza la búsqueda de caminos usando A*, un algoritmo informado que utiliza heurísticas. Aprende a implementar la distancia Manhattan y la función de evaluación f=g+h para búsquedas más eficientes que BFS.",
     estimatedMinutes: 30,
 
+    learningObjectives: [
+      "Implementar A* (A-Star): algoritmo de búsqueda informada con heurísticas",
+      "Calcular heurística Manhattan: |dx| + |dy| para grids con movimiento cardinal",
+      "Aplicar función de evaluación f=g+h combinando costo acumulado y estimación restante",
+      "Usar colas de prioridad con heapq para expandir nodos más prometedores primero",
+      "Optimizar exploración reduciendo nodos expandidos comparado con BFS",
+      "Garantizar admisibilidad: heurística no debe sobreestimar para mantener optimalidad",
+    ],
+
     diagram: {
       title: "Diagrama: prioridad en A*",
+      image: "/diagrams/flujoNivel5.jpeg",
       ascii: `
 +----------------------+
 | open_set (heap)      |
@@ -757,8 +804,18 @@ def astar(inicio, objetivo, entorno):
       "Explora interacciones entre múltiples agentes. Implementa protocolos de comunicación para compartir información (ej: ubicación de recursos) y coordinar acciones hacia objetivos comunes.",
     estimatedMinutes: 26,
 
+    learningObjectives: [
+      "Implementar protocolos de comunicación para enviar y recibir mensajes entre agentes",
+      "Estructurar mensajes correctamente con diccionarios: {de, tipo, contenido}",
+      "Gestionar buzón de mensajes manteniendo lista de mensajes recibidos",
+      "Iterar sobre múltiples destinatarios para enviar broadcast",
+      "Filtrar y procesar información extrayendo mensajes relevantes por tipo",
+      "Coordinar acciones compartiendo información para lograr objetivos comunes",
+    ],
+
     diagram: {
       title: "Diagrama: cooperación por mensajes",
+      image: "/diagrams/flujoNivel6.png",
       ascii: `
 Agente A percibe comida
         |
@@ -880,8 +937,18 @@ Agente A percibe comida
       "Maneja escenarios competitivos con recursos limitados. Implementa mecanismos de desempate y estrategias para maximizar utilidad individual en entornos multi-agente competitivos.",
     estimatedMinutes: 24,
 
+    learningObjectives: [
+      "Implementar reglas de desempate deterministas para resolver conflictos reproducibles",
+      "Usar funciones de ordenamiento avanzado: min() con key=lambda personalizada",
+      "Priorizar criterios múltiples: primera prioridad distancia, segunda prioridad ID",
+      "Evitar comportamiento aleatorio garantizando mismos inputs → mismos outputs",
+      "Manejar recursos limitados asignándolos de forma justa y predecible",
+      "Facilitar debugging con sistemas deterministas más fáciles de testear",
+    ],
+
     diagram: {
       title: "Diagrama: resolución de conflicto",
+      image: "/diagrams/flujoNivel7.jpeg",
       ascii: `
 Agentes eligen objetivo
          |
@@ -978,8 +1045,19 @@ actuar       aplicar desempate:
       "Introduce conceptos fundamentales de Reinforcement Learning. Implementa Q-Learning con tabla Q, epsilon-greedy exploration y la ecuación de Bellman para que agentes aprendan políticas óptimas mediante experiencia.",
     estimatedMinutes: 35,
 
+    learningObjectives: [
+      "Implementar Q-Learning básico: algoritmo de aprendizaje por refuerzo libre de modelo",
+      "Mantener tabla Q usando diccionario para mapear (estado, acción) → valor",
+      "Aplicar estrategia ε-greedy balanceando exploración (random) vs explotación (mejor)",
+      "Entender ecuación de Bellman: Q(s,a) ← Q(s,a) + α[r + γ·max Q(s',a') - Q(s,a)]",
+      "Manejar estados no vistos inicializando valores Q en 0.0 por defecto",
+      "Usar .get() con valores por defecto para robustez",
+      "Aprender de experiencia mejorando política mediante interacción con el entorno",
+    ],
+
     diagram: {
       title: "Diagrama: loop de entrenamiento (RL)",
+      image: "/diagrams/flujoNivel8.jpeg",
       ascii: `
 for episode in EPISODES:
     state = reset()

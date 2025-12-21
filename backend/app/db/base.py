@@ -3,6 +3,9 @@ from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
+# NOTA: No importar modelos aquí para evitar importaciones circulares.
+# Los modelos se registran automáticamente cuando se importan en otros lugares.
+
 # Nota: Las importaciones de modelos están comentadas para evitar importaciones circulares
 # Si usas Alembic para migraciones, descomenta estas líneas en un archivo separado (env.py)
 
