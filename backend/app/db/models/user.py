@@ -75,13 +75,11 @@ class User(Base):
     sessions = relationship(
         "UserSession", back_populates="user", cascade="all, delete-orphan")
     projects = relationship(
-        "Project", back_populates="owner", cascade="all, delete-orphan")
+        "Project", back_populates="owner", cascade="all, delete-orphan", lazy="select")
     progress = relationship(
-        "UserProgress", back_populates="user", cascade="all, delete-orphan")
-    achievements = relationship(
-        "UserAchievement", back_populates="user", cascade="all, delete-orphan")
+        "UserProgress", back_populates="user", cascade="all, delete-orphan", lazy="select")
     project_collaborations = relationship(
-        "ProjectCollaborator", foreign_keys="ProjectCollaborator.user_id", back_populates="user")
+        "ProjectCollaborator", foreign_keys="ProjectCollaborator.user_id", back_populates="user", lazy="select")
 
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
