@@ -210,7 +210,6 @@ export default function Tutorials() {
                 style={{ width: `${overallPct}%` }}
               />
             </div>
-            
           </div>
         </div>
 
@@ -232,6 +231,12 @@ export default function Tutorials() {
               (progress.quizPassed?.[lvl.id] ? 1 : 0);
             const checklistPct = Math.round((checklistDone / 2) * 100);
 
+            // Obtener tiempo real empleado desde el backend (solo si está completado)
+            const backendProgress = progressMap[lvl.level];
+            const isCompleted = backendProgress?.status === "completed";
+            const timeSpentSeconds = backendProgress?.time_spent_seconds || 0;
+            const timeSpentMinutes = Math.round(timeSpentSeconds / 60);
+
             return (
               <button
                 key={lvl.id}
@@ -252,9 +257,11 @@ export default function Tutorials() {
                       <div className="text-xs text-zinc-500">
                         Nivel {lvl.level}
                       </div>
-                      <div className="text-xs text-zinc-500">
-                        {lvl.estimatedMinutes} min aprox.
-                      </div>
+                      {isCompleted && timeSpentSeconds > 0 && (
+                        <div className="text-xs text-emerald-400">
+                          ⏱️ {timeSpentMinutes} min
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div
