@@ -176,6 +176,7 @@ export default function Sidebar({ onSelectElement }) {
     selectedTool,
     setSelectedTool,
     setTemplateByType,
+    isReadOnly,
   } = useSimulation();
 
   if (isReadOnly) {

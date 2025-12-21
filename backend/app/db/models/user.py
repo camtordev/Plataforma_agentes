@@ -78,8 +78,6 @@ class User(Base):
         "Project", back_populates="owner", cascade="all, delete-orphan", lazy="select")
     progress = relationship(
         "UserProgress", back_populates="user", cascade="all, delete-orphan", lazy="select")
-    achievements = relationship(
-        "UserAchievement", back_populates="user", cascade="all, delete-orphan", lazy="select")
     project_collaborations = relationship(
         "ProjectCollaborator", foreign_keys="ProjectCollaborator.user_id", back_populates="user", lazy="select")
 
