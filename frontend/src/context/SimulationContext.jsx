@@ -78,14 +78,35 @@ function simulationReducer(state, action) {
 
 const SimulationContext = createContext(null);
 
-export function SimulationProvider({ children, projectId, readOnly = false }) {
+export function SimulationProvider({ children, projectId, readOnly = false, instanceId }) {
   const [state, dispatch] = useReducer(simulationReducer, initialState);
   const socketRef = useRef(null);
+  const instanceRef = useRef(instanceId);
+
+  // Generar/recordar un UUID por proyecto para aislar motores de simulación
+  useEffect(() => {
+    const storageKey = `sim-instance-${projectId || "default"}`;
+    if (!instanceRef.current) {
+      const stored = sessionStorage.getItem(storageKey);
+      if (stored) {
+        instanceRef.current = stored;
+      } else {
+        const newId =
+          (typeof crypto !== "undefined" && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        instanceRef.current = newId;
+        sessionStorage.setItem(storageKey, newId);
+      }
+    }
+  }, [projectId, instanceId]);
 
   useEffect(() => {
+    const instance = instanceRef.current;
+    const readonlyFlag = readOnly ? "1" : "0";
     const WS_URL = projectId
-      ? `ws://localhost:8000/ws/simulacion?project=${projectId}`
-      : "ws://localhost:8000/ws/simulacion";
+      ? `ws://localhost:8000/ws/simulacion?project=${projectId}&instance=${instance}&readonly=${readonlyFlag}`
+      : `ws://localhost:8000/ws/simulacion?instance=${instance}&readonly=${readonlyFlag}`;
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       return;

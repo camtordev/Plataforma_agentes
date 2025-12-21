@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { getSharedProject, forkProject } from "../services/projectService";
 import { useAuth } from "../context/AuthContext";
@@ -17,6 +17,13 @@ const SharedProject = () => {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const viewerInstance = useMemo(
+    () =>
+      (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    []
+  );
 
   useEffect(() => {
     loadProject();
@@ -218,6 +225,7 @@ const SharedProject = () => {
               <SimulationProvider
                 projectId={project.id}
                 readOnly={true}
+                instanceId={viewerInstance}
                 key={`shared-${project.id}`}
               >
                 <SharedWorkspace />
