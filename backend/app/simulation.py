@@ -49,12 +49,9 @@ class SimulationEngine:
             new_id = f"agent_{len(self.agents)}"
             agent = AgentFactory.create_agent(agent_type, new_id, x, y, strategy=strategy)
             
-            # --- CONFIGURACIÓN SEGURA ---
             if config:
                 if "color" in config: agent.color = config["color"]
                 if "initialEnergy" in config: agent.energy = int(config["initialEnergy"])
-                
-                # Aplicar Radio de Visión del Frontend
                 if "visionRadius" in config:
                     try:
                         agent.vision_radius = int(float(config["visionRadius"]))
@@ -95,13 +92,26 @@ class SimulationEngine:
         self.food = [f for f in self.food if not (f['x'] == x and f['y'] == y)]
         self.obstacles = [o for o in self.obstacles if not (o['x'] == x and o['y'] == y)]
 
+    # --- HELPERS DE VALIDACIÓN ---
+    
     def _is_occupied(self, x: int, y: int) -> bool:
+        """Verifica si hay ALGO en la celda (Agente, Comida u Obstáculo). Útil para spawns."""
         return any(a.x == x and a.y == y for a in self.agents) or \
                any(f['x'] == x and f['y'] == y for f in self.food) or \
                any(o['x'] == x and o['y'] == y for o in self.obstacles)
 
+    def _is_blocked(self, x: int, y: int) -> bool:
+        """Verifica si la celda es impasable (Muro u otro Agente). LA COMIDA NO BLOQUEA."""
+        # 1. Obstáculos
+        if any(o['x'] == x and o['y'] == y for o in self.obstacles):
+            return True
+        # 2. Otros Agentes
+        if any(a.x == x and a.y == y for a in self.agents):
+            return True
+        return False
+
     # =========================================================================
-    #  🧠 LÓGICA DE IA (CORREGIDA Y BLINDADA)
+    #  🧠 LÓGICA DE IA
     # =========================================================================
 
     def _get_agent_decision(self, agent, world_state) -> Tuple[int, int]:
@@ -127,7 +137,6 @@ class SimulationEngine:
             return 0, 0
 
     def _get_visible_food(self, agent):
-        """Retorna comida dentro del radio de visión configurado."""
         visible = []
         try:
             vr = getattr(agent, "vision_radius", 5)
@@ -142,7 +151,7 @@ class SimulationEngine:
         return visible
 
     def _get_direction_towards(self, agent, tx, ty):
-        """Movimiento simple (Greedy) hacia un objetivo sin usar A*."""
+        """Movimiento 'Greedy' hacia un objetivo."""
         dx = tx - agent.x
         dy = ty - agent.y
         
@@ -152,9 +161,9 @@ class SimulationEngine:
         else:
             step = (0, 1 if dy > 0 else -1)
             
-        # Verificar si ese paso es válido (no ocupado), si no, probar el otro eje
+        # Verificar si ese paso está BLOQUEADO (Usando la nueva función que ignora comida)
         nx, ny = agent.x + step[0], agent.y + step[1]
-        if not self._is_occupied(nx, ny):
+        if not self._is_blocked(nx, ny):
             return step
         
         # Si estaba bloqueado, probar el eje secundario
@@ -162,26 +171,30 @@ class SimulationEngine:
             step = (0, 1 if dy > 0 else -1)
         else: # Estábamos probando Y, probamos X
             step = (1 if dx > 0 else -1, 0)
+        
+        # Verificar segunda opción
+        nx, ny = agent.x + step[0], agent.y + step[1]
+        if not self._is_blocked(nx, ny):
+            return step
             
-        return step
+        return 0, 0
 
-    # 1. REACTIVO: Ahora SÍ respeta el radio de visión
+    # 1. REACTIVO
     def _logic_reactive(self, agent, ws):
-        # 1. Buscar comida en todo el radio de visión
         visible = self._get_visible_food(agent)
         
+        # A. Si ve comida, va directo (incluso si está lejos, intenta acercarse)
         if visible:
-            # Ir a la más cercana "por instinto" (línea recta)
             target = self._find_nearest_dict_from_list(agent, visible)
             if target:
                 return self._get_direction_towards(agent, target['x'], target['y'])
         
-        # 2. Si no ve nada, movimiento aleatorio válido
+        # B. Movimiento aleatorio (Usando _is_blocked para permitir pisar comida oculta)
         valid = []
         for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
             nx, ny = agent.x + dx, agent.y + dy
             if 0 <= nx < self.width and 0 <= ny < self.height:
-                if not self._is_occupied(nx, ny):
+                if not self._is_blocked(nx, ny): # <-- CAMBIO CLAVE AQUÍ
                     valid.append((dx, dy))
         
         return random.choice(valid) if valid else (0, 0)
@@ -209,7 +222,7 @@ class SimulationEngine:
             return self._calculate_path_safe(agent, target)
         return 0, 0
 
-    # 4. COOPERATIVO (Con Fallback para no quedarse quieto)
+    # 4. COOPERATIVO
     def _logic_cooperative(self, agent, ws):
         claimed_locations = set()
         for msg in self.messages:
@@ -226,17 +239,16 @@ class SimulationEngine:
         if target_dict:
             target_pos = (target_dict['x'], target_dict['y'])
             
-            # Reclamar
             self.messages.append({
                 "type": "CLAIMED",
                 "sender_id": agent.id,
                 "pos": target_pos
             })
             
-            # INTENTAR RUTA INTELIGENTE
+            # Intento de ruta inteligente
             move = self._calculate_path_safe(agent, target_pos)
             
-            # FALLBACK: Si A* devuelve (0,0) pero no estamos en el objetivo, mover simple
+            # Fallback a movimiento directo si A* falla o se confunde
             if move == (0, 0) and (agent.x, agent.y) != target_pos:
                  return self._get_direction_towards(agent, target_pos[0], target_pos[1])
             
@@ -302,7 +314,6 @@ class SimulationEngine:
         return target
 
     def _calculate_path_safe(self, agent, target):
-        """Calcula path con A*, y maneja errores silenciosamente."""
         try:
             start = (agent.x, agent.y)
             path = Pathfinding.a_star(start, target, self.width, self.height, self.obstacles)
