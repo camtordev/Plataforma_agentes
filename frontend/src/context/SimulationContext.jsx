@@ -86,28 +86,16 @@ export function SimulationProvider({
   projectId,
   readOnly = false,
   instanceId,
+  workspaceId,
 }) {
   const [state, dispatch] = useReducer(simulationReducer, initialState);
   const socketRef = useRef(null);
-  const instanceRef = useRef(instanceId);
-
-  // Generar/recordar un UUID por proyecto para aislar motores de simulación
-  useEffect(() => {
-    const storageKey = `sim-instance-${projectId || "default"}`;
-    if (!instanceRef.current) {
-      const stored = sessionStorage.getItem(storageKey);
-      if (stored) {
-        instanceRef.current = stored;
-      } else {
-        const newId =
-          typeof crypto !== "undefined" && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        instanceRef.current = newId;
-        sessionStorage.setItem(storageKey, newId);
-      }
-    }
-  }, [projectId, instanceId]);
+  const instanceRef = useRef(
+    instanceId ||
+      (typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
+  );
 
   useEffect(() => {
     const instance = instanceRef.current;
@@ -117,6 +105,9 @@ export function SimulationProvider({
     const url = new URL(baseWs);
     if (projectId) {
       url.searchParams.set("project", projectId);
+    }
+    if (workspaceId) {
+      url.searchParams.set("workspace", workspaceId);
     }
     url.searchParams.set("instance", instance);
     url.searchParams.set("readonly", readonlyFlag);

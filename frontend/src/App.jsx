@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -6,6 +6,8 @@ import {
   Navigate,
   useSearchParams,
   useParams,
+  useNavigate,
+  useLocation,
 } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { SimulationProvider } from "./context/SimulationContext";
@@ -63,16 +65,46 @@ const WorkspaceView = () => {
 
 // Wrap del workspace con SimulationProvider aislado por proyecto/tutorial
 const WorkspaceWithProvider = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [workspaceId, setWorkspaceId] = useState(
+    searchParams.get("workspace") || searchParams.get("room") || null
+  );
   const { id } = useParams();
   const projectId = searchParams.get("project") || id || null;
   const isReadOnly =
     searchParams.get("readonly") === "1" ||
     searchParams.get("view") === "readonly";
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Sin proyecto: generar clave de workspace compartible y reflejarla en la URL
+  useEffect(() => {
+    const currentWs = searchParams.get("workspace") || searchParams.get("room");
+    if (currentWs && currentWs !== workspaceId) {
+      setWorkspaceId(currentWs);
+      return;
+    }
+    if (!projectId && !workspaceId) {
+      const newId =
+        (typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      setWorkspaceId(newId);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("workspace", newId);
+      setSearchParams(nextParams, { replace: true });
+      // Aseguramos que la URL cambie sin empujar historial adicional
+      navigate(
+        `${location.pathname}?${nextParams.toString()}`,
+        { replace: true }
+      );
+    }
+  }, [projectId, searchParams, setSearchParams, workspaceId, navigate]);
 
   return (
     <SimulationProvider
       projectId={projectId}
+      workspaceId={workspaceId}
       readOnly={isReadOnly}
       key={`${projectId || "default"}-${isReadOnly}`}
     >
