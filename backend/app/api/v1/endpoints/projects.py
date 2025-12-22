@@ -6,7 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 from uuid import UUID
 import secrets
 from datetime import datetime, timedelta
@@ -161,6 +161,10 @@ async def update_project(
     for field, value in update_data.items():
         setattr(project, field, value)
 
+    # Sincronizar config de simulación si se envía en el payload
+    if project_data.simulation_config is not None:
+        project.simulation_config = project_data.simulation_config
+
     project.updated_at = datetime.utcnow()
 
     db.commit()
@@ -308,17 +312,18 @@ async def fork_project(
             detail="No tienes permisos para hacer fork de este proyecto"
         )
 
-    # Capturar estado vivo del motor antes de copiar
+    # Capturar estado vivo del motor antes de copiar (solo si hay datos)
     try:
         engine = get_engine(project_id)
         state = engine.get_state().get("data", {})
-        original_project.world_state = state
-        original_project.grid_width = state.get(
-            "width", original_project.grid_width)
-        original_project.grid_height = state.get(
-            "height", original_project.grid_height)
-        if "config" in state:
-            original_project.simulation_config = state.get("config")
+        if state.get("agents") or state.get("food") or state.get("obstacles"):
+            original_project.world_state = state
+            original_project.grid_width = state.get(
+                "width", original_project.grid_width)
+            original_project.grid_height = state.get(
+                "height", original_project.grid_height)
+            if "config" in state:
+                original_project.simulation_config = state.get("config")
     except Exception:
         pass
 
@@ -552,6 +557,7 @@ async def get_public_projects(
     difficulty_level: Optional[int] = Query(
         None, ge=1, le=5, description="Filtrar por dificultad"),
     sort_by: str = Query("recent", description="recent, popular, liked"),
+    search: Optional[str] = Query(None, description="Buscar por título o autor"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
@@ -562,7 +568,7 @@ async def get_public_projects(
 
     **RF5.3 - Galería Comunitaria**
     """
-    query = db.query(Project).filter(Project.is_public == True)
+    query = db.query(Project).join(User, Project.user_id == User.id).filter(Project.is_public == True)
 
     # Aplicar filtros
     if agent_type:
@@ -570,6 +576,16 @@ async def get_public_projects(
 
     if difficulty_level:
         query = query.filter(Project.difficulty_level == difficulty_level)
+
+    if search:
+        like = f"%{search}%"
+        query = query.filter(
+            or_(
+                Project.title.ilike(like),
+                User.username.ilike(like),
+                User.full_name.ilike(like)
+            )
+        )
 
     # Aplicar ordenamiento
     if sort_by == "recent":
@@ -588,6 +604,7 @@ async def get_public_projects(
         project.forks_count = db.query(func.count(Project.id)).filter(
             Project.fork_from_id == project.id
         ).scalar() or 0
+        project.owner_name = project.owner.username if project.owner else None
 
     return projects
 
@@ -619,5 +636,6 @@ async def get_public_project_detail(
     project.forks_count = db.query(func.count(Project.id)).filter(
         Project.fork_from_id == project.id
     ).scalar() or 0
+    project.owner_name = project.owner.username if project.owner else None
 
     return project

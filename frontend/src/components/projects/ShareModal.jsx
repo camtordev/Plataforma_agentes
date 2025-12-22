@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Link2, Copy } from "lucide-react";
 import {
   createShareLink,
@@ -10,7 +10,12 @@ import { toast } from "react-hot-toast";
  * RF5.2 - Modal para Compartir Proyecto
  * Genera URL única con opciones de expiración
  */
-const ShareModal = ({ project, onClose }) => {
+const ShareModal = ({
+  project,
+  onClose,
+  initialLink = null,
+  onLinkChange = () => {},
+}) => {
   const [loading, setLoading] = useState(false);
   const [shareData, setShareData] = useState({
     expires_in_days: 30,
@@ -18,6 +23,10 @@ const ShareModal = ({ project, onClose }) => {
     allow_download: true,
   });
   const [shareLink, setShareLink] = useState(null);
+
+  useEffect(() => {
+    setShareLink(initialLink);
+  }, [initialLink]);
 
   const handleGenerate = async () => {
     try {
@@ -27,10 +36,13 @@ const ShareModal = ({ project, onClose }) => {
       const baseUrl = window.location.origin;
       const fullUrl = `${baseUrl}/shared/${result.share_token}`;
 
-      setShareLink({
+      const newLink = {
         ...result,
         full_url: fullUrl,
-      });
+      };
+
+      setShareLink(newLink);
+      onLinkChange(newLink);
 
       toast.success("Enlace generado exitosamente");
     } catch (error) {
@@ -47,6 +59,7 @@ const ShareModal = ({ project, onClose }) => {
       await revokeShareLink(project.id);
       toast.success("Enlace revocado");
       setShareLink(null);
+      onLinkChange(null);
     } catch (error) {
       toast.error("Error al revocar: " + error.message);
     }
@@ -71,8 +84,12 @@ const ShareModal = ({ project, onClose }) => {
             <p className="text-xs font-semibold uppercase tracking-[0.15em] text-blue-300">
               Compartir proyecto
             </p>
-            <h3 className="text-lg font-bold text-white leading-tight">{project.title}</h3>
-            <p className="text-xs text-zinc-400">Genera y gestiona un enlace público.</p>
+            <h3 className="text-lg font-bold text-white leading-tight">
+              {project.title}
+            </h3>
+            <p className="text-xs text-zinc-400">
+              Genera y gestiona un enlace público.
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -91,22 +108,30 @@ const ShareModal = ({ project, onClose }) => {
                   <Link2 size={16} />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-white">Enlace público</p>
+                  <p className="text-sm font-medium text-white">
+                    Enlace público
+                  </p>
                   <p className="text-xs text-zinc-400">
-                    Cualquier persona con el enlace podrá ver el proyecto. Controla expiración y permisos.
+                    Cualquier persona con el enlace podrá ver el proyecto.
+                    Controla expiración y permisos.
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-zinc-300">Tiempo de expiración</label>
+                  <label className="text-xs font-medium text-zinc-300">
+                    Tiempo de expiración
+                  </label>
                   <select
                     value={shareData.expires_in_days ?? ""}
                     onChange={(e) =>
                       setShareData({
                         ...shareData,
-                        expires_in_days: e.target.value === "" ? null : parseInt(e.target.value),
+                        expires_in_days:
+                          e.target.value === ""
+                            ? null
+                            : parseInt(e.target.value, 10),
                       })
                     }
                     className="w-full px-4 py-2 border border-zinc-700 bg-zinc-950 text-zinc-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
@@ -118,34 +143,6 @@ const ShareModal = ({ project, onClose }) => {
                     <option value="">Sin expiración</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="flex items-center justify-between p-3 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 transition-colors">
-                  <div>
-                    <p className="text-sm text-white">Permitir clonar (fork)</p>
-                    <p className="text-xs text-zinc-500">Los usuarios podrán duplicar el proyecto.</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={shareData.allow_fork}
-                    onChange={(e) => setShareData({ ...shareData, allow_fork: e.target.checked })}
-                    className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 accent-blue-600 cursor-pointer"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-3 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 transition-colors">
-                  <div>
-                    <p className="text-sm text-white">Permitir descarga</p>
-                    <p className="text-xs text-zinc-500">Habilita la exportación del proyecto.</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={shareData.allow_download}
-                    onChange={(e) => setShareData({ ...shareData, allow_download: e.target.checked })}
-                    className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 accent-blue-600 cursor-pointer"
-                  />
-                </label>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3">
@@ -167,15 +164,22 @@ const ShareModal = ({ project, onClose }) => {
           ) : (
             <>
               <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 space-y-2">
-                <p className="text-sm text-green-200 font-medium">Enlace generado</p>
+                <p className="text-sm text-green-200 font-medium">
+                  Enlace generado
+                </p>
                 <p className="text-xs text-green-300">
                   Comparte este enlace con quien quieras.
-                  {shareLink.expires_at && ` Expira el ${new Date(shareLink.expires_at).toLocaleDateString()}.`}
+                  {shareLink.expires_at &&
+                    ` Expira el ${new Date(
+                      shareLink.expires_at
+                    ).toLocaleDateString()}.`}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-medium text-zinc-300">Enlace compartido</label>
+                <label className="text-xs font-medium text-zinc-300">
+                  Enlace compartido
+                </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
@@ -216,8 +220,9 @@ const ShareModal = ({ project, onClose }) => {
 
               <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg p-3">
                 <p className="text-xs text-yellow-200">
-                  <strong>Importante:</strong> Cualquier persona con este enlace puede ver tu proyecto. Si lo revocas,
-                  dejará de funcionar inmediatamente.
+                  <strong>Importante:</strong> Cualquier persona con este enlace
+                  puede ver tu proyecto. Si lo revocas, dejará de funcionar
+                  inmediatamente.
                 </p>
               </div>
             </>
