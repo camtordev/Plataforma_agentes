@@ -65,7 +65,10 @@ function simulationReducer(state, action) {
     case "SET_TEMPLATE":
       return { ...state, selectedTemplate: action.payload };
     case "SET_AGENT_CONFIG":
-      return { ...state, agentConfig: { ...state.agentConfig, ...action.payload } };
+      return {
+        ...state,
+        agentConfig: { ...state.agentConfig, ...action.payload },
+      };
     case "SET_SIMULATION_CONFIG":
       return {
         ...state,
@@ -78,7 +81,12 @@ function simulationReducer(state, action) {
 
 const SimulationContext = createContext(null);
 
-export function SimulationProvider({ children, projectId, readOnly = false, instanceId }) {
+export function SimulationProvider({
+  children,
+  projectId,
+  readOnly = false,
+  instanceId,
+}) {
   const [state, dispatch] = useReducer(simulationReducer, initialState);
   const socketRef = useRef(null);
   const instanceRef = useRef(instanceId);
@@ -92,7 +100,7 @@ export function SimulationProvider({ children, projectId, readOnly = false, inst
         instanceRef.current = stored;
       } else {
         const newId =
-          (typeof crypto !== "undefined" && crypto.randomUUID)
+          typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
             : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         instanceRef.current = newId;
@@ -105,8 +113,8 @@ export function SimulationProvider({ children, projectId, readOnly = false, inst
     const instance = instanceRef.current;
     const readonlyFlag = readOnly ? "1" : "0";
     const WS_URL = projectId
-      ? `ws://localhost:8000/ws/simulacion?project=${projectId}&instance=${instance}&readonly=${readonlyFlag}`
-      : `ws://localhost:8000/ws/simulacion?instance=${instance}&readonly=${readonlyFlag}`;
+      ? `ws://3.228.25.217/ws/simulacion?project=${projectId}`
+      : "ws://3.228.25.217/ws/simulacion";
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       return;
@@ -164,7 +172,7 @@ export function SimulationProvider({ children, projectId, readOnly = false, inst
       dispatch({ type: isRunning ? "START_SIMULATION" : "STOP_SIMULATION" });
       sendMessage({ type: isRunning ? "START" : "STOP" });
     },
-    [sendMessage],
+    [sendMessage]
   );
 
   const setSelectedTool = useCallback((tool) => {
@@ -202,6 +210,7 @@ export function SimulationProvider({ children, projectId, readOnly = false, inst
 
 export function useSimulation() {
   const context = useContext(SimulationContext);
-  if (!context) throw new Error("useSimulation debe usarse dentro de SimulationProvider");
+  if (!context)
+    throw new Error("useSimulation debe usarse dentro de SimulationProvider");
   return context;
 }

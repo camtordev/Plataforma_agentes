@@ -1,21 +1,54 @@
 version: '3.8'
 
 services:
+  # BACKEND (Corregido: Busca en la carpeta app)
+  backend:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://agentlab:agentlab123%2F@db:5432/agentes_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+
+  # FRONTEND
+  frontend:
+    build: ./frontend
+    volumes:
+      - build_volume:/app/dist
+
+  # NGINX
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - build_volume:/usr/share/nginx/html
+    depends_on:
+      - backend
+      - frontend
+
+  # BASE DE DATOS
   db:
     image: postgres:15
+    restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: agentes_db
-    ports:
-      - "5432:5432"
+      - POSTGRES_USER=agentlab
+      - POSTGRES_PASSWORD=agentlab123/
+      - POSTGRES_DB=agentes_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  # REDIS
   redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
+    image: redis:alpine
+    restart: always
 
 volumes:
   postgres_data:
+  build_volume:

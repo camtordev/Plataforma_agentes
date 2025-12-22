@@ -8,20 +8,21 @@ const TEMPLATES = {
     description: "Toma decisiones basadas únicamente en su entorno inmediato (celdas vecinas) sin memoria del pasado.",
     code: `class ReactiveAgent(Agent):
     def decide(self, perception):
-        # 1. PERCEIVE: Mira celdas adyacentes
+        # 1. PERCIBIR: Mira celdas adyacentes
         vecinos = perception.get_neighbors()
-        
-        # 2. DECIDE: Reglas simples
-        # Regla A: Si hay comida al lado, tómala
+
+        # 2. DECIDIR: Reglas de supervivencia
+        # Regla A: Si hay comida al lado, tómala (Prioridad Máxima)
         for celda in vecinos:
             if celda.has_food():
                 return Move(to=celda)
-        
+
         # Regla B: Si no, muévete al azar a un lugar libre
         libres = [c for c in vecinos if not c.is_blocked()]
         if libres:
             return Move(to=random.choice(libres))
-            
+
+        # Regla C: Si estoy encerrado, esperar
         return Wait()`
   },
 
@@ -31,91 +32,104 @@ const TEMPLATES = {
     description: "Mantiene un registro de las celdas visitadas para priorizar la exploración de terreno desconocido.",
     code: `class MemoryAgent(Agent):
     def __init__(self):
-        self.visited = set() # STATE: Memoria
+        self.visited = set() # STATE: Memoria de largo plazo
 
     def decide(self, perception):
-        # 1. Actualizar memoria
+        # 1. ACTUALIZAR MEMORIA
         self.visited.add(self.current_pos)
-        
-        # 2. PERCEIVE
+
+        # 2. CLASIFICAR OPCIONES
         vecinos = perception.get_neighbors()
+        # Filtramos celdas que NUNCA hemos visitado
+        nuevos = [v for v in vecinos if v not in self.visited]
+
+        # 3. ESTRATEGIA: Curiosidad Pura
+        # Siempre preferir ir a lo desconocido
+        if nuevos:
+            return Move(to=random.choice(nuevos))
         
-        # 3. DECIDE
-        # Prioridad: Celdas no visitadas
-        no_visitados = [c for c in vecinos if c not in self.visited]
-        
-        if no_visitados:
-            return Move(to=random.choice(no_visitados))
-            
-        # Si todo está visitado, retrocede (Backtracking simple)
+        # Si ya conozco todo alrededor, retroceder (Backtracking)
         return Move(to=random.choice(vecinos))`
   },
 
-  collector: {
-    title: "Agente Planificador (Búsqueda)",
+  collector: { // Nota: Este es tu 'PlannerAgent'
+    title: "Agente Recolector (Búsqueda)",
     language: "python",
-    description: "Utiliza algoritmos de búsqueda (BFS, A*, etc.) para encontrar el camino óptimo hacia un objetivo global.",
-    code: `class PlannerAgent(Agent):
+    description: "Utiliza algoritmos de búsqueda (BFS, A*) para encontrar el camino óptimo hacia la comida más cercana.",
+    code: `class CollectorAgent(Agent):
     def decide(self, world_state):
-        # 1. Definir Objetivo
+        # 1. Definir Objetivo (Comida más cercana)
         target = world_state.find_nearest_food(self.pos)
         if not target: return Wait()
         
-        # 2. Planificar Ruta (Algorithm: {{strategy}})
+        # 2. Planificar Ruta (Usando A* o BFS)
         # Calcula paso a paso cómo llegar
-        path = algorithms.{{strategy}}(
+        path = algorithms.astar(
             start=self.pos, 
             goal=target, 
             grid=world_state.grid
         )
         
-        # 3. ACT: Ejecutar siguiente paso del plan
-        next_step = path[0]
-        return Move(to=next_step)`
+        # 3. ACTUAR: Ejecutar siguiente paso del plan
+        if path:
+            next_step = path[0]
+            return Move(to=next_step)
+        return Wait()`
   },
 
   cooperative: {
     title: "Agente Cooperativo",
     language: "python",
-    description: "Comparte información con otros agentes. Si encuentra comida, avisa a sus compañeros.",
+    description: "Coordina con otros para no repetir objetivos. Si alguien reclama una comida, este agente busca otra.",
     code: `class CooperativeAgent(Agent):
     def decide(self, world_state):
-        # 1. Revisar mensajes
-        if self.inbox:
-            msg = self.inbox.pop()
-            if msg.type == 'FOUND_RESOURCE':
-                self.target = msg.location
-        
-        # 2. Percibir entorno
-        if self.sees_food():
-            # COMUNICAR: Avisar a otros
-            broadcast("FOUND_RESOURCE", self.pos)
-            return Take()
-            
-        # 3. Moverse hacia objetivo compartido o explorar
-        if self.target:
-            return move_towards(self.target)
-        else:
-            return random_move()`
+        # 1. ESCUCHAR A LOS DEMÁS
+        # Si alguien gritó "CLAIMED" a una comida, la ignoro
+        comida_ocupada = self.listen_messages("CLAIMED")
+
+        # 2. BUSCAR COMIDA DISPONIBLE
+        visible = world_state.find_food()
+        targets_libres = [f for f in visible if f not in comida_ocupada]
+
+        # 3. COORDINAR
+        if targets_libres:
+            target = targets_libres[0] # La más cercana
+            # Aviso a los demás que esta es mía
+            self.broadcast(msg="CLAIMED", data=target)
+            return Move(to=target)
+
+        return Explore()`
   },
 
   competitive: {
     title: "Agente Competitivo",
     language: "python",
-    description: "Intenta bloquear a otros agentes y prioriza recursos en disputa.",
+    description: "Calcula el costo de oportunidad. Solo persigue comida si puede llegar antes que sus rivales.",
     code: `class CompetitiveAgent(Agent):
     def decide(self, world_state):
-        # 1. Identificar rivales
-        rivals = world_state.get_nearby_agents()
-        
-        # 2. Estrategia Agresiva
-        for rival in rivals:
-            if self.can_block(rival):
-                return Block(rival.next_step)
-        
-        # 3. Priorizar recursos
-        target = self.find_best_food()
-        return move_towards(target)`
+        mejor_opcion = None
+        mejor_puntaje = -1000
+
+        # Evaluar cada comida visible
+        for comida in world_state.find_food():
+            dist_mia = calculate_dist(self.pos, comida)
+            dist_rival = calculate_dist(self.nearest_enemy, comida)
+
+            # ESTRATEGIA: COSTO DE OPORTUNIDAD
+            # Si el rival está más cerca, voy a perder -> Puntaje bajo
+            if dist_rival <= dist_mia:
+                puntaje = -100 
+            else:
+                # Si puedo ganar -> Puntaje alto
+                puntaje = 100 - dist_mia
+
+            if puntaje > mejor_puntaje:
+                mejor_puntaje = puntaje
+                mejor_opcion = comida
+
+        if mejor_opcion:
+            return Move(to=mejor_opcion)
+        return Patrol()`
   },
 
   q_learning: {
@@ -143,41 +157,40 @@ const TEMPLATES = {
   custom: {
     title: "Agente Personalizado",
     language: "python",
-    description: "Define tu propia lógica. Escribe el cuerpo de la función 'decide'. Debes devolver una tupla (dx, dy) con el movimiento relativo.",
+    description: "Define tu propia lógica. Escribe el cuerpo de la función 'decide'. Debes devolver una tupla (dx, dy).",
     code: `# Escribe tu lógica aquí.
-    # Tienes acceso a:
-    # - 'perception': Un diccionario con datos del entorno.
-    # - 'random', 'math': Librerías estándar.
+# Tienes acceso a:
+# - 'perception': Un diccionario con datos del entorno.
+# - 'random', 'math': Librerías estándar.
 
-    # Ejemplo de percepción:
-    # perception = {
-    #    "x": 5, "y": 5, "energy": 100,
-    #    "nearby_food": [(6,5), (5,6)],
-    #    "nearby_obstacles": [(4,4)]
-    # }
+# Ejemplo de percepción:
+# perception = {
+#    "x": 5, "y": 5, "energy": 100,
+#    "nearby_food": [(6,5), (5,6)],
+#    "nearby_obstacles": [(4,4)]
+# }
 
-    # TU CÓDIGO DEBE TERMINAR DEVOLVIENDO UNA TUPLA (dx, dy)
-    # Ejemplo: return (1, 0) para moverse a la derecha.
+# TU CÓDIGO DEBE TERMINAR DEVOLVIENDO UNA TUPLA (dx, dy)
 
-    # --- Escribe tu código debajo de esta línea ---
+# --- Escribe tu código debajo de esta línea ---
 
-    if perception["nearby_food"]:
-        # Ir hacia la primera comida que vea
-        target = perception["nearby_food"][0]
-        dx = target[0] - perception["x"]
-        dy = target[1] - perception["y"]
-        # Normalizar a 1 paso (simple)
-        dx = max(-1, min(1, dx))
-        dy = max(-1, min(1, dy))
-        return (dx, dy)
+if perception["nearby_food"]:
+    # Ir hacia la primera comida que vea
+    target = perception["nearby_food"][0]
+    dx = target[0] - perception["x"]
+    dy = target[1] - perception["y"]
+    # Normalizar a 1 paso (simple)
+    dx = max(-1, min(1, dx))
+    dy = max(-1, min(1, dy))
+    return (dx, dy)
 
-    # Si no hay comida, movimiento aleatorio
-    dx = random.choice([-1, 0, 1])
-    dy = random.choice([-1, 0, 1])
-    return (dx, dy)`
+# Si no hay comida, movimiento aleatorio
+dx = random.choice([-1, 0, 1])
+dy = random.choice([-1, 0, 1])
+return (dx, dy)`
   },
 
-  // --- ALGORITMOS ---
+  // --- ALGORITMOS (Opcional, si los muestras) ---
   bfs: {
     title: "Algoritmo BFS",
     language: "python",
@@ -193,21 +206,17 @@ const TEMPLATES = {
 };
 
 export const getTemplate = (type, params = {}) => {
-  // 1. Buscamos la plantilla, o usamos reactive por defecto
   let template = TEMPLATES[type] || TEMPLATES['reactive'];
   let code = template.code;
 
-  // 2. Reemplazo de variables {{variable}}
   Object.keys(params).forEach(key => {
     const regex = new RegExp(`{{${key}}}`, 'g');
     code = code.replace(regex, params[key]);
   });
 
-  // 3. RETORNAMOS EL OBJETO CON EL 'type' EXPLÍCITO
-  // Aquí estaba el problema: antes no devolvíamos 'type', solo ...template y code.
   return { 
       ...template, 
       code, 
-      type: type // <--- ESTO ES LO QUE FALTABA
+      type: type 
   };
 };

@@ -1,12 +1,12 @@
 // frontend/src/services/tutorialService.js
 /**
  * Servicio para interactuar con los endpoints de progreso de tutoriales
- * API Base: http://localhost:8000/api/v1/tutorials
+ * API Base: http://3.228.25.217/api/v1/tutorials
  */
 
 import { getToken } from './authService';
 
-const API_BASE = "http://localhost:8000/api/v1/tutorials";
+const API_BASE = "http://3.228.25.217/api/v1/tutorials";
 
 /**
  * Genera headers con autenticación JWT
