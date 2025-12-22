@@ -40,18 +40,9 @@ const SharedProject = () => {
     try {
       setLoading(true);
       setError(null);
-      console.info("[SharePage] Cargando proyecto compartido", { token });
       const data = await getSharedProject(token);
       setProject(data);
-      console.info("[SharePage] Proyecto listo", {
-        id: data?.id,
-        title: data?.title,
-      });
     } catch (err) {
-      console.error("[SharePage] Error cargando proyecto compartido", {
-        token,
-        message: err?.message,
-      });
       setError(err.message);
     } finally {
       setLoading(false);
