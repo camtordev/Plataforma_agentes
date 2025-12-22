@@ -3,7 +3,7 @@ import math
 from typing import List, Dict, Any, Tuple
 from .agents.factory import AgentFactory
 from .algorithms.pathfinding import Pathfinding
-# Si no tienes el archivo executor, comenta la siguiente línea
+# Si no tienes el archivo executor, mantén comentada la siguiente línea
 # from .services.sandbox.executor import execute_custom_agent_code
 
 class SimulationEngine:
@@ -13,18 +13,15 @@ class SimulationEngine:
         self.agents = []    
         self.food = []      
         self.obstacles = [] 
-        self.messages = []  # Buzón global (se limpia cada turno)
-        self.claims = {}    # Registro de reclamos { (x,y): agent_id }
+        self.messages = []  
+        self.claims = {}    
         self.is_running = False
         self.step_count = 0
         self.speed = 0.5
-
-        # Configuración
         self.max_steps = 100
         self.is_unlimited = False
         self.stop_on_food = True
 
-    # --- GESTIÓN DE ESTADO ---
     def reset(self):
         self.agents = []
         self.food = []
@@ -46,7 +43,6 @@ class SimulationEngine:
         if "stopOnFood" in config: self.stop_on_food = bool(config["stopOnFood"])
         if "speed" in config and float(config["speed"]) > 0: self.speed = 0.5 / float(config["speed"])
 
-    # --- GESTIÓN DE ENTIDADES ---
     def add_agent(self, x: int, y: int, agent_type: str = "reactive", strategy: str = "bfs", config: Dict = None):
         if self._is_occupied(x, y): return
 
@@ -54,25 +50,28 @@ class SimulationEngine:
             new_id = f"agent_{len(self.agents)}"
             agent = AgentFactory.create_agent(agent_type, new_id, x, y, strategy=strategy)
             
-            # APLICAR CONFIGURACIÓN DEL FRONTEND (RADIO DE VISIÓN)
+            # --- BLINDAJE DE CONFIGURACIÓN ---
             if config:
                 if "color" in config: agent.color = config["color"]
                 if "initialEnergy" in config: agent.energy = int(config["initialEnergy"])
-                # AQUÍ SE APLICA EL RADIO DE VISIÓN QUE VIENE DEL SLIDER
-                if "visionRadius" in config: 
-                    agent.vision_radius = int(config["visionRadius"])
+                
+                # Conversión segura del radio de visión
+                if "visionRadius" in config:
+                    try:
+                        agent.vision_radius = int(float(config["visionRadius"])) # float por si llega "3.5" o similar
+                    except (ValueError, TypeError):
+                        agent.vision_radius = 5 # Valor por defecto si falla
                 else:
-                    agent.vision_radius = 5 # Default si no viene config
+                    agent.vision_radius = 5
             else:
                 agent.vision_radius = 5
 
-            # Inicializar memoria para exploradores
             agent.visited = set()
             agent.visited.add((x, y))
-            
             self.agents.append(agent)
+            
         except Exception as e:
-            print(f" ❌  Error creando agente: {e}")
+            print(f" ❌  Error FATAL creando agente: {e}")
 
     def add_food(self, x: int, y: int, food_type: str = "food", config: Dict = None):
         if self._is_occupied(x, y): return
@@ -103,48 +102,52 @@ class SimulationEngine:
                any(o['x'] == x and o['y'] == y for o in self.obstacles)
 
     # =========================================================================
-    #  🧠 LÓGICA DE IA (CORREGIDA: VISIÓN LIMITADA + COOPERACIÓN REAL)
+    #  🧠 LÓGICA DE IA (CON TRY-EXCEPT PARA EVITAR CRASHES)
     # =========================================================================
 
     def _get_agent_decision(self, agent, world_state) -> Tuple[int, int]:
-        agent_type = getattr(agent, "type", "reactive").lower()
-        
-        strategies = {
-            "reactive": self._logic_reactive,
-            "explorer": self._logic_explorer,
-            "collector": self._logic_collector, # Alias para Planner
-            "planner": self._logic_collector,
-            "cooperative": self._logic_cooperative,
-            "competitive": self._logic_competitive,
-            "q_learning": self._logic_q_learning,
-            "custom": self._logic_custom
-        }
-        
-        logic = next((func for key, func in strategies.items() if key in agent_type), self._logic_reactive)
-        return logic(agent, world_state)
+        try:
+            agent_type = getattr(agent, "type", "reactive").lower()
+            
+            strategies = {
+                "reactive": self._logic_reactive,
+                "explorer": self._logic_explorer,
+                "collector": self._logic_collector,
+                "planner": self._logic_collector,
+                "cooperative": self._logic_cooperative,
+                "competitive": self._logic_competitive,
+                "q_learning": self._logic_q_learning,
+                "custom": self._logic_custom
+            }
+            
+            logic = next((func for key, func in strategies.items() if key in agent_type), self._logic_reactive)
+            return logic(agent, world_state)
+            
+        except Exception as e:
+            # SI ALGO FALLA, EL AGENTE SE QUEDA QUIETO Y NO TUMBA EL SERVIDOR
+            print(f" ⚠️ Error en lógica del agente {agent.id} ({agent_type}): {e}")
+            return 0, 0
 
-    # --- HELPER: LO QUE VE EL AGENTE REALMENTE ---
     def _get_visible_food(self, agent):
-        """Retorna SOLO la comida dentro del radio de visión."""
         visible = []
-        vr = getattr(agent, "vision_radius", 3) # Si falla, usa 3 por defecto
-        
+        try:
+            vr = getattr(agent, "vision_radius", 5)
+            if vr is None: vr = 5
+        except:
+            vr = 5
+            
         for f in self.food:
-            # Distancia Manhattan
             dist = abs(f['x'] - agent.x) + abs(f['y'] - agent.y)
             if dist <= vr:
                 visible.append(f)
         return visible
 
-    # 1. REACTIVO: Solo ve adyacentes (Radio 1 implícito)
     def _logic_reactive(self, agent, ws):
-        # Prioridad: Comer si está al lado
         for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
             nx, ny = agent.x + dx, agent.y + dy
             if any(f['x'] == nx and f['y'] == ny for f in self.food):
                 return dx, dy
         
-        # Si no, mover random a casilla libre
         valid = []
         for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
             nx, ny = agent.x + dx, agent.y + dy
@@ -154,93 +157,67 @@ class SimulationEngine:
         
         return random.choice(valid) if valid else (0, 0)
 
-    # 2. EXPLORADOR: Prioriza no visitados, respeta visión limitada
     def _logic_explorer(self, agent, ws):
         if not hasattr(agent, "visited"): agent.visited = set()
         agent.visited.add((agent.x, agent.y))
 
-        # Solo puede decidir moverse a donde ve
-        vr = getattr(agent, "vision_radius", 5)
-        
-        # Obtenemos celdas válidas ALREDEDOR (adyacentes)
         neighbors = Pathfinding.get_neighbors(agent.x, agent.y, self.width, self.height, self.obstacles)
-        
-        # Filtramos celdas nunca visitadas
         unvisited = [pos for pos in neighbors if pos not in agent.visited]
         
-        # Si hay algo nuevo cerca, ir allá
         if unvisited:
             target = random.choice(unvisited)
             return target[0] - agent.x, target[1] - agent.y
-            
-        # Si estoy atascado en lo conocido, mover a cualquiera válido
         if neighbors:
             target = random.choice(neighbors)
             return target[0] - agent.x, target[1] - agent.y
-            
         return 0, 0
 
-    # 3. RECOLECTOR (Planner): Usa A* SOLO con comida VISIBLE
     def _logic_collector(self, agent, ws):
         visible_food = self._get_visible_food(agent)
-        
-        # SI NO VEO COMIDA -> ME COMPORTO COMO EXPLORADOR
         if not visible_food:
             return self._logic_explorer(agent, ws)
-            
-        # SI VEO COMIDA -> VOY A LA MÁS CERCANA
         target = self._find_nearest_from_list(agent, visible_food)
-        
         if target:
             return self._calculate_path(agent, target, "astar")
-            
         return 0, 0
 
-    # 4. COOPERATIVO: Respeta reclamos en TIEMPO REAL
     def _logic_cooperative(self, agent, ws):
-        # 1. ACTUALIZAR LISTA DE IGNORADOS CON MENSAJES DE ESTE TURNO
-        # Leemos self.messages que han sido llenados por agentes anteriores en este mismo loop
+        # 1. Leer reclamos (safe get)
         claimed_locations = set()
         for msg in self.messages:
-            if msg['type'] == 'CLAIMED':
+            if msg.get('type') == 'CLAIMED' and 'pos' in msg:
                 claimed_locations.add(msg['pos'])
 
-        # 2. OBTENER COMIDA VISIBLE
+        # 2. Filtrar comida
         visible_food = self._get_visible_food(agent)
-        
-        # 3. FILTRAR LA QUE YA ESTÁ RECLAMADA
         available_food = []
         for f in visible_food:
             pos = (f['x'], f['y'])
-            # Si no está reclamada, O si la reclamé YO mismo (para no confundirme)
-            claimant = self.claims.get(pos)
+            # Filtramos si está reclamada por OTRO (si no está en mi memoria local de reclamos)
             if pos not in claimed_locations:
                  available_food.append(f)
 
-        # 4. DECIDIR
+        # 3. Decidir
         if not available_food:
             return self._logic_explorer(agent, ws)
 
-        # Elegir la mejor disponible
         target_dict = self._find_nearest_dict_from_list(agent, available_food)
-        target_pos = (target_dict['x'], target_dict['y'])
+        if target_dict:
+            target_pos = (target_dict['x'], target_dict['y'])
+            
+            # 4. Reclamar
+            self.messages.append({
+                "type": "CLAIMED",
+                "sender_id": agent.id,
+                "pos": target_pos
+            })
+            return self._calculate_path(agent, target_pos, "astar")
+            
+        return 0, 0
 
-        # 5. RECLAMAR (Gritar al mundo)
-        self.messages.append({
-            "type": "CLAIMED",
-            "sender_id": agent.id,
-            "pos": target_pos
-        })
-        self.claims[target_pos] = agent.id # Registro persistente del turno
-
-        return self._calculate_path(agent, target_pos, "astar")
-
-    # 5. COMPETITIVO: Solo compite por lo que VE
     def _logic_competitive(self, agent, ws):
         visible_food = self._get_visible_food(agent)
-        
         if not visible_food:
-            # Patrullar agresivamente (movimiento rápido aleatorio)
             return random.choice([(0,1), (0,-1), (1,0), (-1,0)])
 
         best_target = None
@@ -248,19 +225,16 @@ class SimulationEngine:
 
         for f in visible_food:
             my_dist = abs(agent.x - f['x']) + abs(agent.y - f['y'])
-            
-            # Ver si hay enemigos cerca DE ESA COMIDA (Solo si yo los veo también, idealmente)
             enemy_dist = float('inf')
             for other in self.agents:
                 if other.id != agent.id:
-                    # Trampa simple: Asumimos que intuye la posición del enemigo si está cerca
                     d = abs(other.x - f['x']) + abs(other.y - f['y'])
                     if d < enemy_dist: enemy_dist = d
             
             if enemy_dist <= my_dist:
-                score = -100 # Perderé
+                score = -100
             else:
-                score = 100 - my_dist # Ganaré
+                score = 100 - my_dist
             
             if score > best_score:
                 best_score = score
@@ -271,7 +245,7 @@ class SimulationEngine:
             
         return random.choice([(0,1), (0,-1), (1,0), (-1,0)])
 
-    # --- HELPERS ÚTILES ---
+    # --- HELPERS ---
     def _find_nearest_from_list(self, agent, food_list):
         if not food_list: return None
         target = None
@@ -303,38 +277,25 @@ class SimulationEngine:
              return path[0][0] - agent.x, path[0][1] - agent.y
         return 0, 0
 
-    # --- Q-LEARNING & CUSTOM (Sin cambios mayores) ---
     def _logic_q_learning(self, agent, ws):
-        return self._logic_reactive(agent, ws) # Placeholder
+        return self._logic_reactive(agent, ws)
 
     def _logic_custom(self, agent, ws):
-        # Si tienes el executor activado, descomenta la lógica real
-        # perception = self._build_perception(agent)
-        # return execute_custom_agent_code(agent.custom_code, perception)
+        # Descomentar si tienes executor
+        # return execute_custom_agent_code(agent.custom_code, self._build_perception(agent))
         return 0, 0
 
-    # =========================================================================
-    #  BUCLE PRINCIPAL (STEP)
-    # =========================================================================
     def step(self):
         if self._check_stop_conditions(): return
         self.step_count += 1
-        
-        # Limpiamos el buzón al inicio del turno
         self.messages = [] 
         self.claims = {} 
 
-        # Snapshot del mundo (opcional para visualización, no crítico para lógica interna)
         world_state = { "food": self.food, "obstacles": self.obstacles, "agents": self.agents }
 
-        # Iteramos agentes
         for agent in self.agents:
             if agent.energy <= 0: continue
-            
-            # 1. DECISIÓN (Ahora usa la lógica corregida)
             dx, dy = self._get_agent_decision(agent, world_state)
-            
-            # 2. ACCIÓN
             self._apply_movement(agent, dx, dy)
             self._handle_interactions(agent)
 
@@ -344,18 +305,14 @@ class SimulationEngine:
         new_x = max(0, min(self.width - 1, agent.x + dx))
         new_y = max(0, min(self.height - 1, agent.y + dy))
 
-        # Obstáculos
         obstacle = next((o for o in self.obstacles if o['x'] == new_x and o['y'] == new_y), None)
         if obstacle:
-            # Lógica simple de choque
             agent.energy -= 0.1
             return 
 
-        # Colisión con Agentes
         if any(a.id != agent.id and a.x == new_x and a.y == new_y for a in self.agents):
             return 
 
-        # Movimiento
         agent.x = new_x
         agent.y = new_y
         agent.energy -= 0.5
@@ -363,7 +320,6 @@ class SimulationEngine:
         agent.path_history.append((new_x, new_y))
 
     def _handle_interactions(self, agent):
-        # Comer
         for f in self.food[:]:
             if f['x'] == agent.x and f['y'] == agent.y:
                 gain = f.get("value", 20)
