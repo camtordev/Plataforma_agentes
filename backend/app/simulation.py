@@ -3,7 +3,6 @@ import math
 from typing import List, Dict, Any, Tuple
 from .agents.factory import AgentFactory
 from .algorithms.pathfinding import Pathfinding
-# Si no tienes el archivo executor, mantén comentada la siguiente línea
 # from .services.sandbox.executor import execute_custom_agent_code
 
 class SimulationEngine:
@@ -50,17 +49,17 @@ class SimulationEngine:
             new_id = f"agent_{len(self.agents)}"
             agent = AgentFactory.create_agent(agent_type, new_id, x, y, strategy=strategy)
             
-            # --- BLINDAJE DE CONFIGURACIÓN ---
+            # --- CONFIGURACIÓN SEGURA ---
             if config:
                 if "color" in config: agent.color = config["color"]
                 if "initialEnergy" in config: agent.energy = int(config["initialEnergy"])
                 
-                # Conversión segura del radio de visión
+                # Aplicar Radio de Visión del Frontend
                 if "visionRadius" in config:
                     try:
-                        agent.vision_radius = int(float(config["visionRadius"])) # float por si llega "3.5" o similar
+                        agent.vision_radius = int(float(config["visionRadius"]))
                     except (ValueError, TypeError):
-                        agent.vision_radius = 5 # Valor por defecto si falla
+                        agent.vision_radius = 5
                 else:
                     agent.vision_radius = 5
             else:
@@ -71,7 +70,7 @@ class SimulationEngine:
             self.agents.append(agent)
             
         except Exception as e:
-            print(f" ❌  Error FATAL creando agente: {e}")
+            print(f" ❌  Error creando agente: {e}")
 
     def add_food(self, x: int, y: int, food_type: str = "food", config: Dict = None):
         if self._is_occupied(x, y): return
@@ -102,7 +101,7 @@ class SimulationEngine:
                any(o['x'] == x and o['y'] == y for o in self.obstacles)
 
     # =========================================================================
-    #  🧠 LÓGICA DE IA (CON TRY-EXCEPT PARA EVITAR CRASHES)
+    #  🧠 LÓGICA DE IA (CORREGIDA Y BLINDADA)
     # =========================================================================
 
     def _get_agent_decision(self, agent, world_state) -> Tuple[int, int]:
@@ -124,11 +123,11 @@ class SimulationEngine:
             return logic(agent, world_state)
             
         except Exception as e:
-            # SI ALGO FALLA, EL AGENTE SE QUEDA QUIETO Y NO TUMBA EL SERVIDOR
-            print(f" ⚠️ Error en lógica del agente {agent.id} ({agent_type}): {e}")
+            print(f" ⚠️ Error en lógica del agente {agent.id}: {e}")
             return 0, 0
 
     def _get_visible_food(self, agent):
+        """Retorna comida dentro del radio de visión configurado."""
         visible = []
         try:
             vr = getattr(agent, "vision_radius", 5)
@@ -142,12 +141,42 @@ class SimulationEngine:
                 visible.append(f)
         return visible
 
-    def _logic_reactive(self, agent, ws):
-        for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
-            nx, ny = agent.x + dx, agent.y + dy
-            if any(f['x'] == nx and f['y'] == ny for f in self.food):
-                return dx, dy
+    def _get_direction_towards(self, agent, tx, ty):
+        """Movimiento simple (Greedy) hacia un objetivo sin usar A*."""
+        dx = tx - agent.x
+        dy = ty - agent.y
         
+        # Intentar moverse en el eje con mayor distancia primero
+        if abs(dx) > abs(dy):
+            step = (1 if dx > 0 else -1, 0)
+        else:
+            step = (0, 1 if dy > 0 else -1)
+            
+        # Verificar si ese paso es válido (no ocupado), si no, probar el otro eje
+        nx, ny = agent.x + step[0], agent.y + step[1]
+        if not self._is_occupied(nx, ny):
+            return step
+        
+        # Si estaba bloqueado, probar el eje secundario
+        if step[0] != 0: # Estábamos probando X, probamos Y
+            step = (0, 1 if dy > 0 else -1)
+        else: # Estábamos probando Y, probamos X
+            step = (1 if dx > 0 else -1, 0)
+            
+        return step
+
+    # 1. REACTIVO: Ahora SÍ respeta el radio de visión
+    def _logic_reactive(self, agent, ws):
+        # 1. Buscar comida en todo el radio de visión
+        visible = self._get_visible_food(agent)
+        
+        if visible:
+            # Ir a la más cercana "por instinto" (línea recta)
+            target = self._find_nearest_dict_from_list(agent, visible)
+            if target:
+                return self._get_direction_towards(agent, target['x'], target['y'])
+        
+        # 2. Si no ve nada, movimiento aleatorio válido
         valid = []
         for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
             nx, ny = agent.x + dx, agent.y + dy
@@ -157,6 +186,7 @@ class SimulationEngine:
         
         return random.choice(valid) if valid else (0, 0)
 
+    # 2. EXPLORADOR
     def _logic_explorer(self, agent, ws):
         if not hasattr(agent, "visited"): agent.visited = set()
         agent.visited.add((agent.x, agent.y))
@@ -164,40 +194,31 @@ class SimulationEngine:
         neighbors = Pathfinding.get_neighbors(agent.x, agent.y, self.width, self.height, self.obstacles)
         unvisited = [pos for pos in neighbors if pos not in agent.visited]
         
-        if unvisited:
-            target = random.choice(unvisited)
-            return target[0] - agent.x, target[1] - agent.y
-        if neighbors:
-            target = random.choice(neighbors)
-            return target[0] - agent.x, target[1] - agent.y
+        if unvisited: return self._target_to_move(agent, random.choice(unvisited))
+        if neighbors: return self._target_to_move(agent, random.choice(neighbors))
         return 0, 0
 
+    # 3. RECOLECTOR
     def _logic_collector(self, agent, ws):
         visible_food = self._get_visible_food(agent)
         if not visible_food:
             return self._logic_explorer(agent, ws)
+        
         target = self._find_nearest_from_list(agent, visible_food)
         if target:
-            return self._calculate_path(agent, target, "astar")
+            return self._calculate_path_safe(agent, target)
         return 0, 0
 
+    # 4. COOPERATIVO (Con Fallback para no quedarse quieto)
     def _logic_cooperative(self, agent, ws):
-        # 1. Leer reclamos (safe get)
         claimed_locations = set()
         for msg in self.messages:
             if msg.get('type') == 'CLAIMED' and 'pos' in msg:
                 claimed_locations.add(msg['pos'])
 
-        # 2. Filtrar comida
         visible_food = self._get_visible_food(agent)
-        available_food = []
-        for f in visible_food:
-            pos = (f['x'], f['y'])
-            # Filtramos si está reclamada por OTRO (si no está en mi memoria local de reclamos)
-            if pos not in claimed_locations:
-                 available_food.append(f)
+        available_food = [f for f in visible_food if (f['x'], f['y']) not in claimed_locations]
 
-        # 3. Decidir
         if not available_food:
             return self._logic_explorer(agent, ws)
 
@@ -205,16 +226,25 @@ class SimulationEngine:
         if target_dict:
             target_pos = (target_dict['x'], target_dict['y'])
             
-            # 4. Reclamar
+            # Reclamar
             self.messages.append({
                 "type": "CLAIMED",
                 "sender_id": agent.id,
                 "pos": target_pos
             })
-            return self._calculate_path(agent, target_pos, "astar")
+            
+            # INTENTAR RUTA INTELIGENTE
+            move = self._calculate_path_safe(agent, target_pos)
+            
+            # FALLBACK: Si A* devuelve (0,0) pero no estamos en el objetivo, mover simple
+            if move == (0, 0) and (agent.x, agent.y) != target_pos:
+                 return self._get_direction_towards(agent, target_pos[0], target_pos[1])
+            
+            return move
             
         return 0, 0
 
+    # 5. COMPETITIVO
     def _logic_competitive(self, agent, ws):
         visible_food = self._get_visible_food(agent)
         if not visible_food:
@@ -231,21 +261,24 @@ class SimulationEngine:
                     d = abs(other.x - f['x']) + abs(other.y - f['y'])
                     if d < enemy_dist: enemy_dist = d
             
-            if enemy_dist <= my_dist:
-                score = -100
-            else:
-                score = 100 - my_dist
+            score = -100 if enemy_dist <= my_dist else (100 - my_dist)
             
             if score > best_score:
                 best_score = score
                 best_target = (f['x'], f['y'])
 
         if best_target:
-            return self._calculate_path(agent, best_target, "astar")
+            move = self._calculate_path_safe(agent, best_target)
+            if move == (0, 0) and (agent.x, agent.y) != best_target:
+                 return self._get_direction_towards(agent, best_target[0], best_target[1])
+            return move
             
         return random.choice([(0,1), (0,-1), (1,0), (-1,0)])
 
     # --- HELPERS ---
+    def _target_to_move(self, agent, target_pos):
+        return target_pos[0] - agent.x, target_pos[1] - agent.y
+
     def _find_nearest_from_list(self, agent, food_list):
         if not food_list: return None
         target = None
@@ -268,20 +301,23 @@ class SimulationEngine:
                 target = f
         return target
 
-    def _calculate_path(self, agent, target, strategy):
-        start = (agent.x, agent.y)
-        path = Pathfinding.a_star(start, target, self.width, self.height, self.obstacles)
-        if path and len(path) > 1:
-            return path[1][0] - agent.x, path[1][1] - agent.y
-        elif path and len(path) == 1:
-             return path[0][0] - agent.x, path[0][1] - agent.y
+    def _calculate_path_safe(self, agent, target):
+        """Calcula path con A*, y maneja errores silenciosamente."""
+        try:
+            start = (agent.x, agent.y)
+            path = Pathfinding.a_star(start, target, self.width, self.height, self.obstacles)
+            if path and len(path) > 1:
+                return path[1][0] - agent.x, path[1][1] - agent.y
+            elif path and len(path) == 1:
+                return path[0][0] - agent.x, path[0][1] - agent.y
+        except Exception:
+            pass
         return 0, 0
 
     def _logic_q_learning(self, agent, ws):
         return self._logic_reactive(agent, ws)
 
     def _logic_custom(self, agent, ws):
-        # Descomentar si tienes executor
         # return execute_custom_agent_code(agent.custom_code, self._build_perception(agent))
         return 0, 0
 
