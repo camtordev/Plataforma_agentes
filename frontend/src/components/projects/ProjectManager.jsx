@@ -183,10 +183,8 @@ const ProjectManager = () => {
                   {project.description || "Sin descripción"}
                 </p>
 
-                {/* Stats */}
+                {/* Visibilidad */}
                 <div className="flex items-center gap-4 text-sm text-zinc-500 mb-4">
-                  <span>▶ {project.execution_count}</span>
-                  <span>🍴 {project.forks_count}</span>
                   <span
                     className={
                       project.is_public ? "text-green-400" : "text-zinc-600"

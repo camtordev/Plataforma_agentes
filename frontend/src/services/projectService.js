@@ -165,6 +165,7 @@ export const forkProject = async (projectId) => {
  * Generar enlace para compartir
  */
 export const createShareLink = async (projectId, shareData) => {
+  console.info("[Share] Creando enlace", { projectId, shareData });
   return fetchWithAuth(`${API_URL}/projects/${projectId}/share`, {
     method: "POST",
     body: JSON.stringify(shareData),
@@ -175,14 +176,36 @@ export const createShareLink = async (projectId, shareData) => {
  * Obtener proyecto compartido (público, sin autenticación)
  */
 export const getSharedProject = async (shareToken) => {
+  console.info("[Share] Fetch proyecto compartido", {
+    api: API_URL,
+    shareToken,
+  });
   const response = await fetch(`${API_URL}/projects/shared/${shareToken}`);
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || "Error al obtener proyecto compartido");
+    let detail = "Error al obtener proyecto compartido";
+    try {
+      const error = await response.json();
+      detail = error.detail || detail;
+    } catch (e) {
+      detail = `HTTP ${response.status} - cuerpo no JSON`;
+    }
+    console.error("[Share] Fallo GET shared", {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      detail,
+    });
+    throw new Error(detail);
   }
 
-  return response.json();
+  const data = await response.json();
+  console.info("[Share] Proyecto compartido cargado", {
+    projectId: data?.id,
+    title: data?.title,
+    is_public: data?.is_public,
+  });
+  return data;
 };
 
 /**
