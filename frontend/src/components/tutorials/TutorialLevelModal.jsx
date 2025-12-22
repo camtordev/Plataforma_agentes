@@ -93,7 +93,7 @@ export default function TutorialLevelModal({
         ? "✅ Práctica validada"
         : "❌ Aún faltan requisitos en la práctica"
     );
-    if (out.ok) setTab("QUIZ");
+    if (out.ok) setTab("GUIA_WORKSPACE");
   }
 
   function checkQuiz() {
@@ -118,7 +118,6 @@ export default function TutorialLevelModal({
         ? "✅ Quiz aprobado"
         : `❌ Quiz: ${correct}/${total}. Revisa teoría y vuelve a intentar.`
     );
-    if (!passed) setTab("TEORIA");
   }
 
   function resetQuiz() {
@@ -196,6 +195,7 @@ export default function TutorialLevelModal({
               {[
                 { key: "TEORIA", label: "Teoría" },
                 { key: "PRACTICA", label: "Práctica" },
+                { key: "GUIA_WORKSPACE", label: "Guía en Workspace" },
                 { key: "QUIZ", label: "Quiz" },
               ].map((t) => {
                 const active = tab === t.key;
@@ -524,6 +524,90 @@ export default function TutorialLevelModal({
                       ✅ Práctica validada correctamente.
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* GUÍA EN WORKSPACE */}
+            {tab === "GUIA_WORKSPACE" && level.workspacePractice && (
+              <div className="space-y-6">
+                {/* Objetivo de la práctica */}
+                <div className="bg-gradient-to-br from-purple-950/40 to-blue-950/40 border border-purple-800/50 rounded-xl p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">🎯</span>
+                    <h3 className="text-white font-bold text-lg">
+                      Objetivo de la Práctica
+                    </h3>
+                  </div>
+                  <p className="text-zinc-300 leading-relaxed">
+                    {level.workspacePractice.objective}
+                  </p>
+                </div>
+
+                {/* Código del agente */}
+                {level.workspacePractice.agentCode && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+                    <div className="bg-zinc-800 px-4 py-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">💻</span>
+                        <span className="text-white font-semibold text-sm">
+                          Código del{" "}
+                          {level.workspacePractice.agentName || "Agente"}
+                        </span>
+                      </div>
+                    </div>
+                    <pre className="p-4 overflow-x-auto text-sm text-zinc-300 font-mono">
+                      <code>{level.workspacePractice.agentCode}</code>
+                    </pre>
+                  </div>
+                )}
+
+                {/* Explicación del comportamiento */}
+                {level.workspacePractice.explanation && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xl">📖</span>
+                      <h4 className="text-white font-semibold">
+                        Cómo funciona este agente
+                      </h4>
+                    </div>
+                    <div className="text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
+                      {level.workspacePractice.explanation}
+                    </div>
+                  </div>
+                )}
+
+                {/* Instrucciones paso a paso */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-xl">📋</span>
+                    <h4 className="text-white font-semibold">Instrucciones</h4>
+                  </div>
+                  <ol className="space-y-3">
+                    {level.workspacePractice.instructions.map(
+                      (instruction, idx) => (
+                        <li key={idx} className="flex gap-3">
+                          <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                            {idx + 1}
+                          </span>
+                          <span className="text-zinc-300 text-sm leading-relaxed pt-0.5">
+                            {instruction}
+                          </span>
+                        </li>
+                      )
+                    )}
+                  </ol>
+                </div>
+
+                {/* Botón para ir al Workspace */}
+                <div className="flex justify-center pt-4">
+                  <button
+                    onClick={() => (window.location.href = "/workspace")}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"
+                  >
+                    <span className="text-xl">🚀</span>
+                    Ir al Workspace
+                  </button>
                 </div>
               </div>
             )}
