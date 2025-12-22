@@ -6,6 +6,7 @@ import {
   deleteProject,
   exportProject,
   importProject,
+  getProject,
 } from "../../services/projectService";
 import ShareModal from "./ShareModal";
 import { toast } from "react-hot-toast";
@@ -23,6 +24,7 @@ const ProjectManager = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [shareLinks, setShareLinks] = useState({});
 
   const handleImport = async (file) => {
     if (!file) return;
@@ -89,6 +91,22 @@ const ProjectManager = () => {
   const handleShare = (project) => {
     setSelectedProject(project);
     setShowShareModal(true);
+  };
+
+  const handleLinkChange = (projectId, link) => {
+    setShareLinks((prev) => ({
+      ...prev,
+      [projectId]: link,
+    }));
+  };
+
+  const handleEdit = async (projectId) => {
+    try {
+      const fullProject = await getProject(projectId);
+      setProjectToEdit(fullProject);
+    } catch (error) {
+      toast.error("No se pudo cargar el proyecto completo: " + error.message);
+    }
   };
 
   const handleUpdate = async (projectId, formData) => {
@@ -190,7 +208,7 @@ const ProjectManager = () => {
                   </button>
 
                   <button
-                    onClick={() => setProjectToEdit(project)}
+                    onClick={() => handleEdit(project.id)}
                     className="px-3 py-2 text-sm rounded-md border border-amber-700/60 bg-amber-900/30 text-amber-100 hover:bg-amber-800/50 shadow-sm transition"
                     title="Editar"
                   >
@@ -248,6 +266,8 @@ const ProjectManager = () => {
         {showShareModal && selectedProject && (
           <ShareModal
             project={selectedProject}
+            initialLink={shareLinks[selectedProject.id]}
+            onLinkChange={(link) => handleLinkChange(selectedProject.id, link)}
             onClose={() => {
               setShowShareModal(false);
               setSelectedProject(null);
@@ -308,6 +328,16 @@ const ImportProjectModal = ({ onClose, onImport }) => {
 /**
  * Modal para crear proyecto
  */
+const AGENT_OPTIONS = [
+  { value: "reactive", label: "Reactivo" },
+  { value: "explorer", label: "Explorador" },
+  { value: "collector", label: "Recolector" },
+  { value: "cooperative", label: "Cooperativo" },
+  { value: "competitive", label: "Competitivo" },
+  { value: "q_learning", label: "Q-Learning" },
+  { value: "custom", label: "Personalizado" },
+];
+
 const CreateProjectModal = ({ onClose, onCreate, initialData, mode = "create" }) => {
   const [formData, setFormData] = useState(
     initialData || {
@@ -316,12 +346,48 @@ const CreateProjectModal = ({ onClose, onCreate, initialData, mode = "create" })
       is_public: false,
       agent_type: "reactive",
       difficulty_level: 1,
+      simulation_config: {},
     }
   );
+  const [agentSelections, setAgentSelections] = useState(() =>
+    hydrateSelectedTypes(initialData)
+  );
+  const [showAgentPicker, setShowAgentPicker] = useState(false);
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        ...initialData,
+        simulation_config: initialData.simulation_config || {},
+      });
+      setAgentSelections(hydrateSelectedTypes(initialData));
+    }
+  }, [initialData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onCreate(formData);
+    const selectedAgents = agentSelections.length
+      ? agentSelections
+      : ["reactive"];
+    const agent_type =
+      selectedAgents.length === 1 ? selectedAgents[0] : "mixed";
+
+    onCreate({
+      ...formData,
+      agent_type,
+      simulation_config: {
+        ...(formData.simulation_config || {}),
+        agentPlan: selectedAgents.map((type) => ({ type })),
+      },
+    });
+  };
+
+  const toggleAgent = (value) => {
+    setAgentSelections((prev) =>
+      prev.includes(value)
+        ? prev.filter((v) => v !== value)
+        : [...prev, value]
+    );
   };
 
   return (
@@ -361,22 +427,41 @@ const CreateProjectModal = ({ onClose, onCreate, initialData, mode = "create" })
             />
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
-              Tipo de Agente
-            </label>
-            <select
-              value={formData.agent_type}
-              onChange={(e) =>
-                setFormData({ ...formData, agent_type: e.target.value })
-              }
-              className="w-full px-4 py-2 border border-zinc-700 bg-zinc-950 text-zinc-100 rounded-lg focus:ring-2 focus:ring-blue-500"
+          <div className="mb-4 space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowAgentPicker((prev) => !prev)}
+              className="w-full flex items-center justify-between px-4 py-2 rounded-lg border border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-blue-500 transition-colors"
             >
-              <option value="reactive">Reactivo</option>
-              <option value="goal_based">Basado en Objetivos</option>
-              <option value="utility">Utilidad</option>
-              <option value="model_based">Basado en Modelos</option>
-            </select>
+              <span className="text-sm font-medium text-zinc-300">
+                Agentes iniciales (selección múltiple)
+              </span>
+              <span className="text-xs text-zinc-400">
+                {showAgentPicker ? "Ocultar" : "Mostrar"}
+              </span>
+            </button>
+
+            {showAgentPicker && (
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1 border border-zinc-800 rounded-lg p-3 bg-zinc-950/70">
+                {AGENT_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-2 p-2 rounded-lg border border-zinc-800 bg-zinc-950/60 text-sm text-zinc-200 cursor-pointer hover:border-zinc-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={agentSelections.includes(opt.value)}
+                      onChange={() => toggleAgent(opt.value)}
+                      className="accent-blue-500"
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+                <p className="text-xs text-zinc-500">
+                  Puedes elegir varios tipos; se marcará “mixed” si hay más de uno.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mb-4">
@@ -434,6 +519,14 @@ const CreateProjectModal = ({ onClose, onCreate, initialData, mode = "create" })
       </div>
     </div>
   );
+};
+
+const hydrateSelectedTypes = (data) => {
+  const existingPlan = data?.simulation_config?.agentPlan || [];
+  if (existingPlan.length) {
+    return existingPlan.map((a) => a.type);
+  }
+  return ["reactive"];
 };
 
 export default ProjectManager;

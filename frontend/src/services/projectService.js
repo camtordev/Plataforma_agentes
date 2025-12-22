@@ -207,6 +207,7 @@ export const getPublicProjects = async (filters = {}) => {
   if (filters.agent_type) params.append("agent_type", filters.agent_type);
   if (filters.difficulty_level)
     params.append("difficulty_level", filters.difficulty_level);
+  if (filters.search) params.append("search", filters.search);
   if (filters.sort_by) params.append("sort_by", filters.sort_by);
   params.append("skip", filters.skip || 0);
   params.append("limit", filters.limit || 20);
