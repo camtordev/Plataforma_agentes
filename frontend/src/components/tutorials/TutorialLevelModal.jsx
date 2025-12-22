@@ -93,7 +93,7 @@ export default function TutorialLevelModal({
         ? "✅ Práctica validada"
         : "❌ Aún faltan requisitos en la práctica"
     );
-    if (out.ok) setTab("QUIZ");
+    if (out.ok) setTab("GUIA_WORKSPACE");
   }
 
   function checkQuiz() {
@@ -118,7 +118,6 @@ export default function TutorialLevelModal({
         ? "✅ Quiz aprobado"
         : `❌ Quiz: ${correct}/${total}. Revisa teoría y vuelve a intentar.`
     );
-    if (!passed) setTab("TEORIA");
   }
 
   function resetQuiz() {

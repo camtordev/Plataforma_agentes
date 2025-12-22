@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Navbar from "../components/layout/Navbar";
 import { TUTORIAL_LEVELS } from "../content/tutorialsData";
 import TutorialLevelModal from "../components/tutorials/TutorialLevelModal";
@@ -20,25 +20,26 @@ export default function Tutorials() {
   const [openId, setOpenId] = useState(null);
   const [tab, setTab] = useState("TEORIA");
   const [toast, setToast] = useState(null);
+  const hasLoadedProgress = useRef(false);
 
   // Clave de localStorage específica por usuario
-  const STORAGE_KEY = user
-    ? `tutorials_progress_user_${user.id}`
-    : "tutorials_progress_guest";
+  const STORAGE_KEY = useMemo(() => {
+    return user
+      ? `tutorials_progress_user_${user.id}`
+      : "tutorials_progress_guest";
+  }, [user?.id]);
 
   // Estado local para quiz/práctica (inmediato)
-  const [progress, setProgress] = useState(() =>
-    safeParse(localStorage.getItem(STORAGE_KEY), {
-      completed: {},
-      answers: {},
-      quizChecked: {},
-      quizPassed: {},
-      drafts: {},
-      codeChecked: {},
-      codePassed: {},
-      codeMissing: {},
-    })
-  );
+  const [progress, setProgress] = useState({
+    completed: {},
+    answers: {},
+    quizChecked: {},
+    quizPassed: {},
+    drafts: {},
+    codeChecked: {},
+    codePassed: {},
+    codeMissing: {},
+  });
 
   // Progreso global desde backend (persistente)
   const {
@@ -49,14 +50,12 @@ export default function Tutorials() {
     refresh: refreshBackend,
   } = useAllTutorialsProgress();
 
-  // Guardar progreso local en localStorage
+  // Cargar progreso inicial desde localStorage (solo una vez al montar o cuando cambia STORAGE_KEY)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  }, [progress, STORAGE_KEY]);
+    // Resetear el flag para prevenir guardado durante la carga
+    hasLoadedProgress.current = false;
 
-  // Recargar progreso local cuando cambia el usuario
-  useEffect(() => {
-    const newProgress = safeParse(localStorage.getItem(STORAGE_KEY), {
+    const stored = safeParse(localStorage.getItem(STORAGE_KEY), {
       completed: {},
       answers: {},
       quizChecked: {},
@@ -66,8 +65,20 @@ export default function Tutorials() {
       codePassed: {},
       codeMissing: {},
     });
-    setProgress(newProgress);
-  }, [user?.id, STORAGE_KEY]);
+    setProgress(stored);
+
+    // Marcar como cargado después de un pequeño delay para asegurar que el estado se actualice primero
+    setTimeout(() => {
+      hasLoadedProgress.current = true;
+    }, 0);
+  }, [STORAGE_KEY]);
+
+  // Guardar progreso local en localStorage cuando cambia (solo después de cargar)
+  useEffect(() => {
+    if (hasLoadedProgress.current) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    }
+  }, [progress, STORAGE_KEY]);
 
   useEffect(() => {
     if (!toast) return;
@@ -168,6 +179,7 @@ export default function Tutorials() {
       codePassed: {},
       codeMissing: {},
     });
+    hasLoadedProgress.current = false;
     setToast("Progreso reiniciado.");
   }
 
@@ -176,13 +188,13 @@ export default function Tutorials() {
       <Navbar />
 
       {toast && (
-        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-100 shadow">
+        <div className="fixed top-4 right-4 z-[60] px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-100 shadow-xl">
           {toast}
         </div>
       )}
 
       {backendError && (
-        <div className="fixed top-16 right-4 z-50 px-4 py-3 rounded-lg bg-red-900 border border-red-700 text-red-100 shadow">
+        <div className="fixed top-16 right-4 z-[60] px-4 py-3 rounded-lg bg-red-900 border border-red-700 text-red-100 shadow-xl">
           ⚠️ Sin conexión al servidor: {backendError}
         </div>
       )}
