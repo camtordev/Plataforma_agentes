@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # SCHEMAS DE PYDANTIC PARA PROYECTOS
 # ============================================================================
 """
@@ -151,6 +151,7 @@ class ProjectListResponse(BaseModel):
     difficulty_level: Optional[int] = None
     execution_count: int
     forks_count: int = 0
+    owner_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -243,6 +244,7 @@ class ProjectFilters(BaseModel):
     agent_type: Optional[str] = None
     difficulty_level: Optional[int] = Field(None, ge=1, le=5)
     sort_by: str = Field("recent", description="recent, popular, liked")
+    search: Optional[str] = None
     skip: int = Field(0, ge=0)
     limit: int = Field(20, ge=1, le=100)
 
@@ -254,3 +256,4 @@ class ProjectStats(BaseModel):
     likes_count: int
     forks_count: int
     views_count: int
+

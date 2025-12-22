@@ -5,8 +5,8 @@ import { toast } from "react-hot-toast";
 import Navbar from "../components/layout/Navbar";
 
 /**
- * RF5.3 - Galería Comunitaria
- * Explora proyectos públicos con filtros
+ * RF5.3 - Galeria Comunitaria
+ * Explora proyectos publicos con filtros
  */
 const Gallery = () => {
   const { user } = useAuth();
@@ -15,13 +15,14 @@ const Gallery = () => {
   const [filters, setFilters] = useState({
     agent_type: "",
     difficulty_level: "",
-    sort_by: "recent",
+    search: "",
     skip: 0,
     limit: 20,
   });
 
   useEffect(() => {
     loadProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   const loadProjects = async () => {
@@ -40,19 +41,19 @@ const Gallery = () => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
-      skip: 0, // Reset paginaciÛn al cambiar filtros
+      skip: 0, // reset paginacion al cambiar filtros
     }));
   };
 
   const handleFork = async (projectId) => {
     if (!user) {
-      toast.error("Debes iniciar sesiÛn para hacer fork");
+      toast.error("Debes iniciar sesion para hacer fork");
       return;
     }
 
     try {
       await forkProject(projectId);
-      toast.success("¡Proyecto clonado exitosamente!");
+      toast.success("Proyecto clonado exitosamente");
     } catch (error) {
       toast.error("Error al clonar proyecto: " + error.message);
     }
@@ -65,16 +66,30 @@ const Gallery = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">
-            Galería de Proyectos
+            Galeria de Proyectos
           </h1>
           <p className="text-zinc-400">
-            Explora proyectos públicos de la comunidad
+            Explora proyectos publicos de la comunidad
           </p>
         </div>
 
         {/* Filtros */}
         <div className="bg-zinc-900 rounded-lg shadow p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Buscar */}
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-zinc-200 mb-2">
+                Buscar por proyecto o autor
+              </label>
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+                placeholder='Ej: "Explorador" o nombre de autor'
+                className="w-full px-4 py-2 border border-zinc-700 bg-zinc-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
             {/* Tipo de Agente */}
             <div>
               <label className="block text-sm font-medium text-zinc-200 mb-2">
@@ -113,26 +128,10 @@ const Gallery = () => {
               >
                 <option value="">Todas</option>
                 <option value="1">★ Principiante</option>
-                <option value="2">★★ Fácil</option>
+                <option value="2">★★ Facil</option>
                 <option value="3">★★★ Intermedio</option>
                 <option value="4">★★★★ Avanzado</option>
                 <option value="5">★★★★★ Experto</option>
-              </select>
-            </div>
-
-            {/* Ordenar por */}
-            <div>
-              <label className="block text-sm font-medium text-zinc-200 mb-2">
-                Ordenar por
-              </label>
-              <select
-                value={filters.sort_by}
-                onChange={(e) => handleFilterChange("sort_by", e.target.value)}
-                className="w-full px-4 py-2 border border-zinc-700 bg-zinc-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="recent">Más Recientes</option>
-                <option value="popular">Más Populares</option>
-                <option value="liked">Más Gustados</option>
               </select>
             </div>
           </div>
@@ -145,7 +144,7 @@ const Gallery = () => {
             <p className="mt-4 text-zinc-400">Cargando proyectos...</p>
           </div>
         ) : projects.length === 0 ? (
-          <div className="text-center py-12 bg-zinc-900 rounded-lg shadow">
+          <div className="text-center py-12 bg-zinc-900 rounded-lg shadow border border-zinc-800">
             <p className="text-zinc-400">No se encontraron proyectos</p>
           </div>
         ) : (
@@ -153,7 +152,7 @@ const Gallery = () => {
             {projects.map((project) => (
               <div
                 key={project.id}
-                className="bg-zinc-900 rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden border border-zinc-800"
+                className="bg-zinc-900 rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden border border-zinc-800 flex flex-col"
               >
                 {/* Thumbnail */}
                 <div className="h-48 bg-gradient-to-br from-blue-500 to-purple-600 relative">
@@ -165,7 +164,7 @@ const Gallery = () => {
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full text-white text-6xl font-bold">
-                      {project.title[0]}
+                      {project.title?.[0] || "P"}
                     </div>
                   )}
 
@@ -178,13 +177,20 @@ const Gallery = () => {
                 </div>
 
                 {/* Contenido */}
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-white mb-2 truncate">
-                    {project.title}
-                  </h3>
+                <div className="p-4 flex-1 flex flex-col">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <h3 className="text-lg font-semibold text-white truncate">
+                      {project.title}
+                    </h3>
+                  </div>
+                  {project.owner_name && (
+                    <p className="text-xs text-zinc-400 mb-3">
+                      Por {project.owner_name}
+                    </p>
+                  )}
 
                   <p className="text-zinc-400 text-sm mb-4 line-clamp-2">
-                    {project.description || "Sin descripción"}
+                    {project.description || "Sin descripcion"}
                   </p>
 
                   {/* Tipo de agente */}
@@ -195,7 +201,7 @@ const Gallery = () => {
                   )}
 
                   {/* Acciones */}
-                  <div className="flex gap-2">
+                  <div className="mt-auto flex gap-2">
                     <button
                       onClick={() =>
                         (window.location.href = `/workspace?project=${project.id}&readonly=1`)
@@ -221,7 +227,7 @@ const Gallery = () => {
           </div>
         )}
 
-        {/* PaginaciÛn */}
+        {/* Paginacion */}
         {projects.length >= filters.limit && (
           <div className="mt-8 flex justify-center">
             <button
@@ -233,7 +239,7 @@ const Gallery = () => {
               }
               className="bg-zinc-900 px-6 py-3 rounded-lg shadow hover:shadow-lg transition-shadow text-white font-medium border border-zinc-800"
             >
-              Cargar m·s proyectos
+              Cargar mas proyectos
             </button>
           </div>
         )}

@@ -112,15 +112,20 @@ export function SimulationProvider({
   useEffect(() => {
     const instance = instanceRef.current;
     const readonlyFlag = readOnly ? "1" : "0";
-    const WS_URL = projectId
-      ? `ws://3.228.25.217/ws/simulacion?project=${projectId}`
-      : "ws://3.228.25.217/ws/simulacion";
+    const baseWs =
+      import.meta.env.VITE_WS_URL || "ws://3.228.25.217/ws/simulacion";
+    const url = new URL(baseWs);
+    if (projectId) {
+      url.searchParams.set("project", projectId);
+    }
+    url.searchParams.set("instance", instance);
+    url.searchParams.set("readonly", readonlyFlag);
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       return;
     }
 
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(url.toString());
     socketRef.current = ws;
 
     ws.onopen = () => {
