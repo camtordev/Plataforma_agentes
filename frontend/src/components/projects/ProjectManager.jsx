@@ -325,6 +325,7 @@ const ImportProjectModal = ({ onClose, onImport }) => {
 
 /**
  * Modal para crear proyecto
+ * Comentario
  */
 const AGENT_OPTIONS = [
   { value: "reactive", label: "Reactivo" },
@@ -336,7 +337,12 @@ const AGENT_OPTIONS = [
   { value: "custom", label: "Personalizado" },
 ];
 
-const CreateProjectModal = ({ onClose, onCreate, initialData, mode = "create" }) => {
+const CreateProjectModal = ({
+  onClose,
+  onCreate,
+  initialData,
+  mode = "create",
+}) => {
   const [formData, setFormData] = useState(
     initialData || {
       title: "",
@@ -382,9 +388,7 @@ const CreateProjectModal = ({ onClose, onCreate, initialData, mode = "create" })
 
   const toggleAgent = (value) => {
     setAgentSelections((prev) =>
-      prev.includes(value)
-        ? prev.filter((v) => v !== value)
-        : [...prev, value]
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
     );
   };
 
@@ -456,7 +460,8 @@ const CreateProjectModal = ({ onClose, onCreate, initialData, mode = "create" })
                   </label>
                 ))}
                 <p className="text-xs text-zinc-500">
-                  Puedes elegir varios tipos; se marcará “mixed” si hay más de uno.
+                  Puedes elegir varios tipos; se marcará “mixed” si hay más de
+                  uno.
                 </p>
               </div>
             )}
