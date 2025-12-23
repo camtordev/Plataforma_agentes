@@ -243,16 +243,9 @@ async def export_project(
             detail="No tienes permisos para exportar este proyecto"
         )
 
-    # Tomar snapshot del estado actual del motor (agentes, comida, obstáculos)
-    try:
-        engine = get_any_engine_for_project(project_id) or get_engine(project_id)
-        state = engine.get_state().get("data", {}) if engine else {}
-    except Exception:
-        state = {}
-
-    # Si el estado vivo tiene datos, usarlo; si está vacío, conservar lo persistido
-    if state and (state.get("agents") or state.get("food") or state.get("obstacles") or state.get("config")):
-        project.world_state = state
+    # Exportar usando solo el estado persistido para no contaminar con sesiones de vista compartida
+    state = project.world_state or {}
+    if state:
         project.grid_width = state.get("width", project.grid_width)
         project.grid_height = state.get("height", project.grid_height)
         if "config" in state:
@@ -315,16 +308,8 @@ async def fork_project(
             detail="No tienes permisos para hacer fork de este proyecto"
         )
 
-    # Capturar estado vivo del motor antes de copiar (solo si hay datos)
-    try:
-        engine = get_any_engine_for_project(project_id) or get_engine(project_id)
-        state = engine.get_state().get("data", {}) if engine else {}
-    except Exception:
-        state = {}
-
-    if not state:
-        state = original_project.world_state or {}
-
+    # Para forks usamos el estado persistido; evitamos mezclar sesiones de vista compartida
+    state = original_project.world_state or {}
     if state.get("agents") or state.get("food") or state.get("obstacles"):
 
         original_project.world_state = state
