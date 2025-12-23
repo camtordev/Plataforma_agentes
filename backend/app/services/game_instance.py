@@ -35,3 +35,15 @@ def release_engine(project_id=None, workspace_id=None, session_id=None, instance
     key = _make_key(project_id, workspace_id, session_id, instance_id)
     if key in _engines:
         _engines.pop(key, None)
+
+
+def get_any_engine_for_project(project_id):
+    """
+    Retorna la primera instancia encontrada para un proyecto, sin importar la sesión.
+    Útil para snapshots cuando hay múltiples workspaces.
+    """
+    prefix = f"{project_id}::"
+    for key, eng in _engines.items():
+        if key.startswith(prefix):
+            return eng
+    return None
