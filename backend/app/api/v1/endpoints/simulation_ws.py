@@ -49,9 +49,15 @@ async def websocket_endpoint(websocket: WebSocket):
                 cmd_type = raw_data.get("type")
                 data = raw_data.get("data", {})
 
+                # En modo lectura solo permitimos controles de simulacion (no mutar mundo)
                 if readonly_flag:
-                    await manager.send_personal_message({"type": "ERROR", "message": "Sesion en modo lectura"}, websocket)
-                    continue
+                    allowed = {"START", "STOP", "PAUSE", "STEP", "SET_SPEED"}
+                    if cmd_type not in allowed:
+                        await manager.send_personal_message(
+                            {"type": "ERROR", "message": "Sesion en modo lectura"},
+                            websocket,
+                        )
+                        continue
 
                 # Actualizar código custom de agentes
                 if cmd_type == "UPDATE_AGENT_CODE":
