@@ -35,6 +35,53 @@ class SimulationEngine:
         self.height = height
         self.reset()
 
+    def load_state(self, state: Dict[str, Any]):
+        """
+        Hidrata el motor desde un snapshot de estado serializado.
+        Intenta recrear agentes usando la factory; si falla, omite ese agente.
+        """
+        if not state:
+            return
+
+        self.width = state.get("width", self.width)
+        self.height = state.get("height", self.height)
+        self.food = state.get("food", []) or []
+        self.obstacles = state.get("obstacles", []) or []
+        self.step_count = state.get("step", 0)
+        self.is_running = state.get("isRunning", False)
+
+        # Configuración opcional
+        config = state.get("config") or state.get("simulationConfig")
+        if config:
+            self.update_config(config)
+
+        # Recrear agentes
+        self.agents = []
+        for a in state.get("agents", []) or []:
+            try:
+                agent_type = a.get("type", "reactive")
+                agent_id = a.get("id", f"agent_{len(self.agents)}")
+                x = a.get("x", 0)
+                y = a.get("y", 0)
+                strategy = a.get("strategy", "bfs")
+                agent = AgentFactory.create_agent(agent_type, agent_id, x, y, strategy=strategy)
+
+                # Propiedades opcionales
+                for attr in [
+                    "energy",
+                    "steps_taken",
+                    "vision_radius",
+                    "color",
+                ]:
+                    if attr in a:
+                        setattr(agent, attr, a[attr])
+                if "path_history" in a:
+                    agent.path_history = a["path_history"]
+
+                self.agents.append(agent)
+            except Exception as e:
+                print(f"⚠️  Error al recrear agente desde snapshot: {e}")
+
     def update_config(self, config: Dict[str, Any]):
         print(f" 🔧  Configuración actualizada: {config}")
         if "maxSteps" in config: self.max_steps = int(config["maxSteps"])
