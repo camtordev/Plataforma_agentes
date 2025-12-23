@@ -4,9 +4,6 @@ from typing import List, Dict, Any, Tuple
 from .agents.factory import AgentFactory
 from .algorithms.pathfinding import Pathfinding
 
-# ⚠️ CORRECCIÓN 1: Comentamos el import aquí arriba para evitar errores de inicio
-# from .services.sandbox.executor import execute_custom_agent_code
-
 class SimulationEngine:
     def __init__(self):
         self.width = 25
@@ -96,7 +93,7 @@ class SimulationEngine:
         if "speed" in config and float(config["speed"]) > 0: self.speed = 0.5 / float(config["speed"])
 
     # =========================================================
-    # 🚨 FIX: ADD_AGENT ROBUSTO (Maneja errores silenciosos)
+    # ADD_AGENT ROBUSTO (Maneja errores silenciosos)
     # =========================================================
     def add_agent(self, x: int, y: int, agent_type: str = "reactive", strategy: str = "bfs", config: Dict = None):
         # 1. Verificar si está ocupado
@@ -160,7 +157,7 @@ class SimulationEngine:
         })
 
     # ========================================================
-    # 🧱 FIX 1: LEER CONFIGURACIÓN DEL OBSTÁCULO (Frontend)
+    #  LEER CONFIGURACIÓN DEL OBSTÁCULO (Frontend)
     # ========================================================
     def add_obstacle(self, x: int, y: int, obs_type: str = "static", config: Dict = None):
         if self._is_occupied(x, y): return
@@ -197,7 +194,7 @@ class SimulationEngine:
                any(f['x'] == x and f['y'] == y for f in self.food) or \
                any(o['x'] == x and o['y'] == y for o in self.obstacles)
 
-    # 🚨 FIX CRÍTICO: PERMITIR "VER" CAMINO SI ES DESTRUCTIBLE
+    # PERMITIR "VER" CAMINO SI ES DESTRUCTIBLE
     def _is_blocked(self, x: int, y: int) -> bool:
         # 1. Revisar Obstáculos
         obs = next((o for o in self.obstacles if o['x'] == x and o['y'] == y), None)
@@ -217,7 +214,7 @@ class SimulationEngine:
         return False
 
     # ========================================================
-    # 🏃 FIX 2: MOVER OBSTÁCULOS DINÁMICOS
+    # MOVER OBSTÁCULOS DINÁMICOS
     # ========================================================
     def _update_dynamic_obstacles(self):
         """Mueve aleatoriamente los obstáculos marcados como 'dynamic'"""
@@ -254,7 +251,7 @@ class SimulationEngine:
         if self._check_stop_conditions(): return
 
     # ========================================================
-    # 💥 FIX 3: LÓGICA DE DESTRUCCIÓN
+    # LÓGICA DE DESTRUCCIÓN
     # ========================================================
     def _apply_movement(self, agent, dx, dy):
         new_x = max(0, min(self.width - 1, agent.x + dx))
@@ -322,7 +319,7 @@ class SimulationEngine:
         }
 
     # =========================================================================
-    #  🧠 LÓGICA DE IA
+    # LÓGICA DE IA
     # =========================================================================
 
     def _get_agent_decision(self, agent, world_state) -> Tuple[int, int]:
@@ -478,7 +475,7 @@ class SimulationEngine:
             "nearby_obstacles": [(o['x'], o['y']) for o in self.obstacles]
         }
         
-        # ⚠️ CORRECCIÓN 2: IMPORTACIÓN SEGURA AQUÍ ADENTRO
+        # IMPORTACIÓN SEGURA AQUÍ ADENTRO
         try:
             # Importamos aquí para que no falle al arrancar si la ruta está rara
             from .services.sandbox.executor import execute_custom_agent_code
