@@ -1,17 +1,27 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
+import uuid
 from app.websockets.connection_manager import manager
 from app.websockets.events import process_command
-from app.services.game_instance import get_engine
+from app.services.game_instance import get_engine, release_engine
 from app.db.session import SessionLocal
 from app.db.models.project import Project
 
 router = APIRouter()
 
+
 @router.websocket("/ws/simulacion")
 async def websocket_endpoint(websocket: WebSocket):
     project_id = websocket.query_params.get("project")
-    engine = get_engine(project_id)
+    workspace_id = websocket.query_params.get("workspace")
+    session_id = (
+        workspace_id
+        or websocket.query_params.get("session")
+        or websocket.query_params.get("instance")
+        or str(uuid.uuid4())
+    )
+    is_readonly = websocket.query_params.get("readonly") == "1"
+    engine = get_engine(project_id, workspace_id=workspace_id, session_id=session_id)
 
     if project_id and not (engine.agents or engine.food or engine.obstacles):
         session = SessionLocal()
@@ -22,11 +32,11 @@ async def websocket_endpoint(websocket: WebSocket):
         finally:
             session.close()
 
-    await manager.connect(websocket)
-    print("✅ Cliente conectado (Modular)")
+    await manager.connect(websocket, session_id)
+    print(f"WS Cliente conectado (session={session_id}, project={project_id})")
     
     try:
-        # Enviar estado inicial
+        # Enviar estado inicial solo a este websocket
         await manager.send_personal_message(engine.get_state(), websocket)
 
         while True:
@@ -45,8 +55,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 # 2. Procesar (Llama a events.py donde pusimos la seguridad)
                 new_state = await process_command(engine, cmd_type, data)
                 
-                # 3. Responder
-                await manager.send_personal_message(new_state, websocket)
+                # 3. Responder a todos los clientes de este workspace
+                await manager.broadcast(new_state, session_id=session_id)
 
             except asyncio.TimeoutError:
                 if engine.is_running:

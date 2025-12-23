@@ -1,11 +1,18 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { getSharedProject, forkProject } from "../services/projectService";
+import {
+  getSharedProject,
+  forkProject,
+  exportProject,
+} from "../services/projectService";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-hot-toast";
 import { Link2 } from "lucide-react";
 import GridEditor from "../components/simulation/GridEditor";
-import { SimulationProvider, useSimulation } from "../context/SimulationContext";
+import {
+  SimulationProvider,
+  useSimulation,
+} from "../context/SimulationContext";
 
 /**
  * RF5.2 - Vista Previa de Proyecto Compartido
@@ -17,6 +24,13 @@ const SharedProject = () => {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const viewerInstance = useMemo(
+    () =>
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    []
+  );
 
   useEffect(() => {
     loadProject();
@@ -52,12 +66,23 @@ const SharedProject = () => {
     }
   };
 
+  const handleDownload = async () => {
+    try {
+      await exportProject(project.id, true);
+      toast.success("Descarga iniciada");
+    } catch (error) {
+      toast.error("Error al descargar: " + error.message);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-200">
         <div className="text-center">
           <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-sm text-zinc-400">Cargando proyecto compartido...</p>
+          <p className="text-sm text-zinc-400">
+            Cargando proyecto compartido...
+          </p>
         </div>
       </div>
     );
@@ -68,7 +93,9 @@ const SharedProject = () => {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
         <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-8 text-center">
           <div className="text-4xl mb-3">:(</div>
-          <h2 className="text-xl font-semibold text-white mb-2">No se pudo cargar el proyecto</h2>
+          <h2 className="text-xl font-semibold text-white mb-2">
+            No se pudo cargar el proyecto
+          </h2>
           <p className="text-sm text-zinc-400 mb-6">{error}</p>
           <button
             onClick={() => (window.location.href = "/")}
@@ -91,38 +118,28 @@ const SharedProject = () => {
               <Link2 size={14} /> Vista compartida · Enlace publico
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white leading-tight">{project.title}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-white leading-tight">
+                {project.title}
+              </h1>
               <p className="text-sm text-zinc-400">
-                Proyecto accesible mediante token. Consulta, clona o ejecutalo en el espacio compartido.
+                Proyecto accesible mediante token. Consulta, clona o ejecutalo
+                en el espacio compartido.
               </p>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            {user ? (
-              <>
-                <button
-                  onClick={handleFork}
-                  className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow transition-colors"
-                >
-                  Clonar a mi cuenta
-                </button>
-                <button
-                  onClick={() =>
-                    (window.location.href = `/workspace?project=${project.id}&view=shared`)
-                  }
-                  className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 transition-colors"
-                >
-                  Abrir en workspace
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => (window.location.href = "/login")}
-                className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow transition-colors"
-              >
-                Iniciar sesion para clonar
-              </button>
-            )}
+            <button
+              onClick={handleDownload}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 transition-colors"
+            >
+              Descargar proyecto
+            </button>
+            <button
+              onClick={handleFork}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow transition-colors"
+            >
+              Clonar a mi cuenta
+            </button>
           </div>
         </div>
 
@@ -146,13 +163,13 @@ const SharedProject = () => {
                 )}
               </div>
               {project.description && (
-                <p className="text-sm text-zinc-300 leading-relaxed">{project.description}</p>
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  {project.description}
+                </p>
               )}
               <div className="flex flex-wrap gap-3 text-sm text-zinc-400">
-                <span>▶ {project.execution_count} ejecuciones</span>
-                <span>⤴ {project.forks_count} clones</span>
                 <span>
-                  ⏱ Creado el {new Date(project.created_at).toLocaleDateString()}
+                  Creado el {new Date(project.created_at).toLocaleDateString()}
                 </span>
               </div>
             </div>
@@ -169,10 +186,10 @@ const SharedProject = () => {
           </div>
 
           {/* Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Grid oculto en vista compartida: no mostrar tamaño de celda */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <InfoCard label="Ancho" value={`${project.grid_width} celdas`} />
             <InfoCard label="Alto" value={`${project.grid_height} celdas`} />
-            <InfoCard label="Tamano de celda" value={`${project.cell_size}px`} />
           </div>
         </div>
 
@@ -180,7 +197,9 @@ const SharedProject = () => {
         {project.user_code && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl p-6 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Codigo del agente</h2>
+              <h2 className="text-lg font-semibold text-white">
+                Codigo del agente
+              </h2>
               <span className="text-xs text-zinc-500">Solo lectura</span>
             </div>
             <pre className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 text-xs overflow-x-auto leading-relaxed">
@@ -192,7 +211,9 @@ const SharedProject = () => {
         {/* Estado del mundo */}
         {project.world_state && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl p-6 space-y-3">
-            <h2 className="text-lg font-semibold text-white">Estado del mundo</h2>
+            <h2 className="text-lg font-semibold text-white">
+              Estado del mundo
+            </h2>
             <details className="group">
               <summary className="cursor-pointer text-sm text-blue-300 group-open:text-blue-200">
                 Ver configuracion JSON
@@ -207,25 +228,30 @@ const SharedProject = () => {
         {/* Workspace en vivo */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl p-6 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">Workspace compartido</h2>
+            <h2 className="text-lg font-semibold text-white">
+              Workspace compartido
+            </h2>
             <p className="text-sm text-zinc-400">
-              Explora y ejecuta la simulacion tal como fue compartida. La vista se abre automaticamente.
+              Explora y ejecuta la simulacion tal como fue compartida. La vista
+              se abre automaticamente.
             </p>
           </div>
 
           <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950">
-            <div className="h-[70vh]">
-              <SimulationProvider
-                projectId={project.id}
-                readOnly={true}
-                key={`shared-${project.id}`}
-              >
-                <SharedWorkspace />
-              </SimulationProvider>
+            <div className="h-[90vh] flex flex-col min-h-0">
+              <div className="flex-1 min-h-0">
+                <SimulationProvider
+                  projectId={project.id}
+                  readOnly={true}
+                  instanceId={viewerInstance}
+                  key={`shared-${project.id}`}
+                >
+                  <SharedWorkspace />
+                </SimulationProvider>
+              </div>
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -245,7 +271,8 @@ const SharedWorkspace = () => {
     setIsRunning(true);
   }, [setIsRunning]);
 
-  return <GridEditor />;
+  // Mostrar los controles existentes de GridEditor (play/pausa), pero sin herramientas de edición
+  return <GridEditor hideControls={false} />;
 };
 
 export default SharedProject;
