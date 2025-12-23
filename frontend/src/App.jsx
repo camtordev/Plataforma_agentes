@@ -77,7 +77,7 @@ const WorkspaceWithProvider = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Asegurar que siempre exista un workspaceId en la URL (aislar sesiones por usuario)
+  // Asegurar que siempre exista un workspaceId (aislar sesiones; compartir solo si se comparte el enlace)
   useEffect(() => {
     const currentWs = searchParams.get("workspace") || searchParams.get("room");
     if (currentWs && currentWs !== workspaceId) {
@@ -106,7 +106,7 @@ const WorkspaceWithProvider = () => {
       projectId={projectId}
       workspaceId={workspaceId}
       readOnly={isReadOnly}
-      key={`${projectId || "default"}-${isReadOnly}`}
+      key={`${projectId || "default"}-${workspaceId || "ws"}-${isReadOnly}`}
     >
       <WorkspaceView />
     </SimulationProvider>
