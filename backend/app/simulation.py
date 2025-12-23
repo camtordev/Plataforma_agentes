@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Tuple
 from .agents.factory import AgentFactory
 from .algorithms.pathfinding import Pathfinding
 
-# ⚠️ CAMBIO 1: Comentamos esto para evitar errores al iniciar el servidor
+# ⚠️ CORRECCIÓN 1: Comentamos el import aquí arriba para evitar errores de inicio
 # from .services.sandbox.executor import execute_custom_agent_code
 
 class SimulationEngine:
@@ -145,7 +145,6 @@ class SimulationEngine:
             print(f"✅ [Simulation] Agente {new_id} ({agent_type}) creado en ({x}, {y})")
             
         except Exception as e:
-            # ESTE ES EL PRINT QUE TE DIRÁ QUÉ PASA EN LOS LOGS
             print(f"❌ [Simulation] ERROR CRÍTICO creando agente: {e}")
             import traceback
             traceback.print_exc()
@@ -248,7 +247,7 @@ class SimulationEngine:
             return step
         return 0, 0
 
-    # ... TUS LÓGICAS EXISTENTES ...
+    # ... LÓGICAS DE AGENTES ...
     def _logic_reactive(self, agent, ws):
         visible = self._get_visible_food(agent)
         if visible:
@@ -341,7 +340,7 @@ class SimulationEngine:
             "nearby_obstacles": [(o['x'], o['y']) for o in self.obstacles]
         }
         
-        # ⚠️ CAMBIO 2: IMPORTACIÓN SEGURA AQUÍ ADENTRO
+        # ⚠️ CORRECCIÓN 2: IMPORTACIÓN SEGURA AQUÍ ADENTRO
         try:
             # Importamos aquí para que no falle al arrancar si la ruta está rara
             from .services.sandbox.executor import execute_custom_agent_code
