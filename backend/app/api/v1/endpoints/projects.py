@@ -255,12 +255,13 @@ async def export_project(
         state = project.world_state or {}
 
     if state:
-        # Actualizamos campos efímeros antes de exportar
+        # Actualizamos campos efímeros antes de exportar y los persistimos
         project.world_state = state
         project.grid_width = state.get("width", project.grid_width)
         project.grid_height = state.get("height", project.grid_height)
         if "config" in state:
             project.simulation_config = state.get("config")
+        db.commit()
 
     export_data = ProjectExport(**project.__dict__)
 
