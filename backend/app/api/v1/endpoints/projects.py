@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from app.api.deps import get_db, get_current_active_user
 from app.db.models.user import User
 from app.db.models.project import Project, SharedProject
-from app.services.game_instance import get_engine
+from app.services.game_instance import get_engine, get_any_engine_for_project
 from app.schemas.project import (
     ProjectCreate,
     ProjectUpdate,
@@ -245,14 +245,15 @@ async def export_project(
 
     # Tomar snapshot del estado actual del motor (agentes, comida, obstáculos)
     try:
-        engine = get_engine(project_id)
-        state = engine.get_state().get("data", {})
-        # Actualizamos campos efímeros antes de exportar
-        project.world_state = state
-        project.grid_width = state.get("width", project.grid_width)
-        project.grid_height = state.get("height", project.grid_height)
-        if "config" in state:
-            project.simulation_config = state.get("config")
+        engine = get_any_engine_for_project(project_id) or get_engine(project_id)
+        state = engine.get_state().get("data", {}) if engine else {}
+        if state:
+            # Actualizamos campos ef meros antes de exportar
+            project.world_state = state
+            project.grid_width = state.get("width", project.grid_width)
+            project.grid_height = state.get("height", project.grid_height)
+            if "config" in state:
+                project.simulation_config = state.get("config")
     except Exception:
         # Si no hay engine o falla, exportamos lo que tengamos persistido
         pass
@@ -315,9 +316,10 @@ async def fork_project(
 
     # Capturar estado vivo del motor antes de copiar (solo si hay datos)
     try:
-        engine = get_engine(project_id)
-        state = engine.get_state().get("data", {})
+        engine = get_any_engine_for_project(project_id) or get_engine(project_id)
+        state = engine.get_state().get("data", {}) if engine else {}
         if state.get("agents") or state.get("food") or state.get("obstacles"):
+
             original_project.world_state = state
             original_project.grid_width = state.get(
                 "width", original_project.grid_width)
