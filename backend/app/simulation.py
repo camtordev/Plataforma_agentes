@@ -145,6 +145,7 @@ class SimulationEngine:
             print(f"✅ [Simulation] Agente {new_id} ({agent_type}) creado en ({x}, {y})")
             
         except Exception as e:
+            # ESTE ES EL PRINT QUE TE DIRÁ QUÉ PASA EN LOS LOGS
             print(f"❌ [Simulation] ERROR CRÍTICO creando agente: {e}")
             import traceback
             traceback.print_exc()
@@ -158,13 +159,27 @@ class SimulationEngine:
             "value": 20
         })
 
+    # ========================================================
+    # 🧱 NUEVO: LEER CONFIGURACIÓN DEL OBSTÁCULO
+    # ========================================================
     def add_obstacle(self, x: int, y: int, obs_type: str = "static", config: Dict = None):
         if self._is_occupied(x, y): return
+        
+        # Valores por defecto
+        is_destructible = False
+        destruction_cost = 20
+        
+        # Leemos la configuración que viene del modal
+        if config:
+            # Soportamos diferentes nombres de claves por si acaso
+            is_destructible = config.get("isDestructible", config.get("destructible", False))
+            destruction_cost = int(config.get("destructionCost", config.get("cost", 20)))
+
         self.obstacles.append({
             "x": x, "y": y,
             "type": obs_type,
-            "destructible": False,
-            "cost": 5
+            "destructible": is_destructible,
+            "cost": destruction_cost
         })
 
     def remove_at(self, x: int, y: int):
@@ -187,6 +202,24 @@ class SimulationEngine:
         if any(a.x == x and a.y == y for a in self.agents):
             return True
         return False
+
+    # ========================================================
+    # 🏃 NUEVO: MOVER OBSTÁCULOS DINÁMICOS
+    # ========================================================
+    def _update_dynamic_obstacles(self):
+        """Mueve aleatoriamente los obstáculos marcados como 'dynamic'"""
+        for obs in self.obstacles:
+            if obs.get("type") == "dynamic":
+                # Intentamos movernos en una dirección aleatoria
+                moves = [(0, 1), (0, -1), (1, 0), (-1, 0), (0, 0)] 
+                dx, dy = random.choice(moves)
+                nx, ny = obs['x'] + dx, obs['y'] + dy
+                
+                # Verificamos límites y colisiones
+                if (0 <= nx < self.width and 0 <= ny < self.height and 
+                    not self._is_occupied(nx, ny)):
+                    obs['x'] = nx
+                    obs['y'] = ny
 
     # =========================================================================
     #  🧠 LÓGICA DE IA
@@ -396,6 +429,9 @@ class SimulationEngine:
         self.messages = [] 
         self.claims = {} 
 
+        # 🚀 MOVEMOS OBSTÁCULOS DINÁMICOS
+        self._update_dynamic_obstacles()
+
         world_state = { "food": self.food, "obstacles": self.obstacles, "agents": self.agents }
 
         for agent in self.agents:
@@ -406,12 +442,26 @@ class SimulationEngine:
 
         if self._check_stop_conditions(): return
 
+    # ========================================================
+    # 💥 MODIFICADO: LOGICA DE DESTRUCCIÓN
+    # ========================================================
     def _apply_movement(self, agent, dx, dy):
         new_x = max(0, min(self.width - 1, agent.x + dx))
         new_y = max(0, min(self.height - 1, agent.y + dy))
 
+        # Buscamos si hay un obstáculo
         obstacle = next((o for o in self.obstacles if o['x'] == new_x and o['y'] == new_y), None)
         if obstacle:
+            # ¿Es destructible?
+            if obstacle.get("destructible", False):
+                cost = obstacle.get("cost", 20)
+                if agent.energy > cost:
+                    agent.energy -= cost
+                    self.obstacles.remove(obstacle)
+                    print(f"💥 Agente {agent.id} rompió muro en ({new_x}, {new_y})")
+                    return # Se queda quieto el turno que rompe
+            
+            # Si no, choque normal
             agent.energy -= 0.1
             return 
 
