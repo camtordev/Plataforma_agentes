@@ -13,7 +13,6 @@ async def websocket_endpoint(websocket: WebSocket):
     project_id = websocket.query_params.get("project")
     engine = get_engine(project_id)
 
-    # Si hay project_id y el motor está vacío, hidratar con world_state guardado
     if project_id and not (engine.agents or engine.food or engine.obstacles):
         session = SessionLocal()
         try:
@@ -31,7 +30,6 @@ async def websocket_endpoint(websocket: WebSocket):
         await manager.send_personal_message(engine.get_state(), websocket)
 
         while True:
-            # Si el socket ya no está en la lista (fue expulsado por error), rompemos el ciclo
             if websocket not in manager.active_connections:
                 break
 
@@ -44,23 +42,21 @@ async def websocket_endpoint(websocket: WebSocket):
                 cmd_type = raw_data.get("type")
                 data = raw_data.get("data", {})
                 
-                # 2. Procesar
+                # 2. Procesar (Llama a events.py donde pusimos la seguridad)
                 new_state = await process_command(engine, cmd_type, data)
                 
                 # 3. Responder
                 await manager.send_personal_message(new_state, websocket)
 
             except asyncio.TimeoutError:
-                # Timeout: Avanzamos la simulación
                 if engine.is_running:
                     engine.step()
-                    # Usamos broadcast porque el paso afecta a todos (si hubiera más clientes)
                     await manager.broadcast(engine.get_state())
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         engine.is_running = False
-        print("❌ Cliente desconectado (Disconnect Event)")
+        print("❌ Cliente desconectado")
     except Exception as e:
         manager.disconnect(websocket)
         print(f"⚠️ Error crítico en WS loop: {e}")
