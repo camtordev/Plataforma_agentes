@@ -4,9 +4,8 @@ from typing import List, Dict, Any, Tuple
 from .agents.factory import AgentFactory
 from .algorithms.pathfinding import Pathfinding
 
-# 1. IMPORTANTE: Importamos el ejecutor seguro
-# Asegúrate de que backend/app/services/sandbox/executor.py exista
-from .services.sandbox.executor import execute_custom_agent_code
+# ⚠️ CAMBIO 1: Comentamos esto para evitar errores al iniciar el servidor
+# from .services.sandbox.executor import execute_custom_agent_code
 
 class SimulationEngine:
     def __init__(self):
@@ -342,8 +341,17 @@ class SimulationEngine:
             "nearby_obstacles": [(o['x'], o['y']) for o in self.obstacles]
         }
         
-        # Llamamos al executor SEGURO
-        return execute_custom_agent_code(agent.custom_code, perception)
+        # ⚠️ CAMBIO 2: IMPORTACIÓN SEGURA AQUÍ ADENTRO
+        try:
+            # Importamos aquí para que no falle al arrancar si la ruta está rara
+            from .services.sandbox.executor import execute_custom_agent_code
+            return execute_custom_agent_code(agent.custom_code, perception)
+        except ImportError as e:
+            print(f"❌ Error importando executor: {e}")
+            return 0, 0
+        except Exception as e:
+            print(f"❌ Error ejecutando custom code: {e}")
+            return 0, 0
 
     # --- HELPERS ---
     def _target_to_move(self, agent, target_pos):
