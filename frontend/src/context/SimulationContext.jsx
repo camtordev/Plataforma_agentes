@@ -112,8 +112,12 @@ export function SimulationProvider({
     url.searchParams.set("instance", instance);
     url.searchParams.set("readonly", readonlyFlag);
 
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      return;
+    if (socketRef.current) {
+      try {
+        socketRef.current.close();
+      } catch (_) {
+        // ignore
+      }
     }
 
     const ws = new WebSocket(url.toString());
@@ -148,7 +152,7 @@ export function SimulationProvider({
         ws.close();
       }
     };
-  }, [projectId]);
+  }, [projectId, workspaceId, readOnly]);
 
   const sendMessage = useCallback((msg) => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
