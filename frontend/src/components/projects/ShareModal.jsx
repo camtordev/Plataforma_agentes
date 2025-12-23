@@ -23,10 +23,36 @@ const ShareModal = ({
     allow_download: true,
   });
   const [shareLink, setShareLink] = useState(null);
+  const [autoFetched, setAutoFetched] = useState(false);
 
   useEffect(() => {
     setShareLink(initialLink);
   }, [initialLink]);
+
+  // Si no hay enlace precargado, intenta obtener/crear uno automáticamente al abrir
+  useEffect(() => {
+    if (shareLink || autoFetched || !project?.id) return;
+
+    const ensureLink = async () => {
+      try {
+        setLoading(true);
+        const result = await createShareLink(project.id, shareData);
+        const baseUrl = window.location.origin;
+        const fullUrl = `${baseUrl}/shared/${result.share_token}`;
+        const newLink = { ...result, full_url: fullUrl };
+        setShareLink(newLink);
+        onLinkChange(newLink);
+      } catch (error) {
+        // Solo mostrar error si falla la obtención/creación automática
+        toast.error("No se pudo obtener el enlace compartido: " + error.message);
+      } finally {
+        setLoading(false);
+        setAutoFetched(true);
+      }
+    };
+
+    ensureLink();
+  }, [shareLink, autoFetched, project?.id, shareData, onLinkChange]);
 
   const handleGenerate = async () => {
     try {
