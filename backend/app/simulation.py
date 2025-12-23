@@ -160,7 +160,7 @@ class SimulationEngine:
         })
 
     # ========================================================
-    # 🧱 NUEVO: LEER CONFIGURACIÓN DEL OBSTÁCULO
+    # 🧱 FIX 1: LEER CONFIGURACIÓN DEL OBSTÁCULO (Frontend)
     # ========================================================
     def add_obstacle(self, x: int, y: int, obs_type: str = "static", config: Dict = None):
         if self._is_occupied(x, y): return
@@ -171,9 +171,12 @@ class SimulationEngine:
         
         # Leemos la configuración que viene del modal
         if config:
-            # Soportamos diferentes nombres de claves por si acaso
+            # Leemos 'isDestructible' (react) o 'destructible'
             is_destructible = config.get("isDestructible", config.get("destructible", False))
-            destruction_cost = int(config.get("destructionCost", config.get("cost", 20)))
+            try:
+                destruction_cost = int(config.get("destructionCost", config.get("cost", 20)))
+            except:
+                destruction_cost = 20
 
         self.obstacles.append({
             "x": x, "y": y,
@@ -194,17 +197,27 @@ class SimulationEngine:
                any(f['x'] == x and f['y'] == y for f in self.food) or \
                any(o['x'] == x and o['y'] == y for o in self.obstacles)
 
+    # 🚨 FIX CRÍTICO: PERMITIR "VER" CAMINO SI ES DESTRUCTIBLE
     def _is_blocked(self, x: int, y: int) -> bool:
-        # Obstáculos
-        if any(o['x'] == x and o['y'] == y for o in self.obstacles):
+        # 1. Revisar Obstáculos
+        obs = next((o for o in self.obstacles if o['x'] == x and o['y'] == y), None)
+        if obs:
+            # Si el obstáculo es destructible, NO lo consideramos "bloqueado" para la IA.
+            # Esto permite que el agente intente moverse hacia él y active la destrucción en _apply_movement
+            if obs.get("destructible", False):
+                return False 
+            
+            # Si es indestructible, sí bloquea
             return True
-        # Otros Agentes
+
+        # 2. Revisar otros Agentes
         if any(a.x == x and a.y == y for a in self.agents):
             return True
+            
         return False
 
     # ========================================================
-    # 🏃 NUEVO: MOVER OBSTÁCULOS DINÁMICOS
+    # 🏃 FIX 2: MOVER OBSTÁCULOS DINÁMICOS
     # ========================================================
     def _update_dynamic_obstacles(self):
         """Mueve aleatoriamente los obstáculos marcados como 'dynamic'"""
@@ -215,11 +228,98 @@ class SimulationEngine:
                 dx, dy = random.choice(moves)
                 nx, ny = obs['x'] + dx, obs['y'] + dy
                 
-                # Verificamos límites y colisiones
+                # Verificamos límites y colisiones (no pisar nada)
                 if (0 <= nx < self.width and 0 <= ny < self.height and 
                     not self._is_occupied(nx, ny)):
                     obs['x'] = nx
                     obs['y'] = ny
+
+    def step(self):
+        if self._check_stop_conditions(): return
+        self.step_count += 1
+        self.messages = [] 
+        self.claims = {} 
+
+        # 1. Movemos obstáculos dinámicos
+        self._update_dynamic_obstacles()
+
+        world_state = { "food": self.food, "obstacles": self.obstacles, "agents": self.agents }
+
+        for agent in self.agents:
+            if agent.energy <= 0: continue
+            dx, dy = self._get_agent_decision(agent, world_state)
+            self._apply_movement(agent, dx, dy)
+            self._handle_interactions(agent)
+
+        if self._check_stop_conditions(): return
+
+    # ========================================================
+    # 💥 FIX 3: LÓGICA DE DESTRUCCIÓN
+    # ========================================================
+    def _apply_movement(self, agent, dx, dy):
+        new_x = max(0, min(self.width - 1, agent.x + dx))
+        new_y = max(0, min(self.height - 1, agent.y + dy))
+
+        # Buscamos si hay un obstáculo en la nueva posición
+        obstacle = next((o for o in self.obstacles if o['x'] == new_x and o['y'] == new_y), None)
+        
+        if obstacle:
+            # ¿Es destructible?
+            if obstacle.get("destructible", False):
+                cost = obstacle.get("cost", 20)
+                
+                # Si el agente tiene energía suficiente, lo rompe
+                if agent.energy > cost:
+                    agent.energy -= cost
+                    self.obstacles.remove(obstacle) # 💥 Eliminar obstáculo
+                    print(f"💥 Agente {agent.id} rompió muro en ({new_x}, {new_y})")
+                    # El agente se queda quieto este turno mientras rompe el muro
+                    return 
+            
+            # Si no es destructible o falta energía, choque normal
+            agent.energy -= 0.1
+            return 
+
+        # Si hay otro agente, choque simple
+        if any(a.id != agent.id and a.x == new_x and a.y == new_y for a in self.agents):
+            return 
+
+        # Movimiento normal
+        agent.x = new_x
+        agent.y = new_y
+        agent.energy -= 0.5
+        agent.steps_taken += 1
+        agent.path_history.append((new_x, new_y))
+
+    def _handle_interactions(self, agent):
+        for f in self.food[:]:
+            if f['x'] == agent.x and f['y'] == agent.y:
+                gain = f.get("value", 20)
+                agent.energy = min(150, agent.energy + gain)
+                self.food.remove(f)
+
+    def _check_stop_conditions(self):
+        if not self.is_unlimited and self.step_count >= self.max_steps:
+            self.is_running = False
+            return True
+        if self.stop_on_food and len(self.food) == 0 and len(self.agents) > 0:
+            self.is_running = False
+            return True
+        return False
+
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            "type": "WORLD_UPDATE",
+            "data": {
+                "step": self.step_count,
+                "agents": [a.to_dict() for a in self.agents],
+                "food": self.food,
+                "obstacles": self.obstacles,
+                "width": self.width,
+                "height": self.height,
+                "isRunning": self.is_running,
+            }
+        }
 
     # =========================================================================
     #  🧠 LÓGICA DE IA
@@ -269,13 +369,17 @@ class SimulationEngine:
         else:
             step = (0, 1 if dy > 0 else -1)
         nx, ny = agent.x + step[0], agent.y + step[1]
+        
+        # Usamos _is_blocked que ahora permite entrar si es destructible
         if not self._is_blocked(nx, ny):
             return step
+            
         if step[0] != 0: 
             step = (0, 1 if dy > 0 else -1)
         else: 
             step = (1 if dx > 0 else -1, 0)
         nx, ny = agent.x + step[0], agent.y + step[1]
+        
         if not self._is_blocked(nx, ny):
             return step
         return 0, 0
@@ -289,6 +393,7 @@ class SimulationEngine:
         valid = []
         for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
             nx, ny = agent.x + dx, agent.y + dy
+            # Usamos _is_blocked arreglado
             if 0 <= nx < self.width and 0 <= ny < self.height and not self._is_blocked(nx, ny):
                 valid.append((dx, dy))
         return random.choice(valid) if valid else (0, 0)
@@ -422,84 +527,3 @@ class SimulationEngine:
         except Exception:
             pass
         return 0, 0
-
-    def step(self):
-        if self._check_stop_conditions(): return
-        self.step_count += 1
-        self.messages = [] 
-        self.claims = {} 
-
-        # 🚀 MOVEMOS OBSTÁCULOS DINÁMICOS
-        self._update_dynamic_obstacles()
-
-        world_state = { "food": self.food, "obstacles": self.obstacles, "agents": self.agents }
-
-        for agent in self.agents:
-            if agent.energy <= 0: continue
-            dx, dy = self._get_agent_decision(agent, world_state)
-            self._apply_movement(agent, dx, dy)
-            self._handle_interactions(agent)
-
-        if self._check_stop_conditions(): return
-
-    # ========================================================
-    # 💥 MODIFICADO: LOGICA DE DESTRUCCIÓN
-    # ========================================================
-    def _apply_movement(self, agent, dx, dy):
-        new_x = max(0, min(self.width - 1, agent.x + dx))
-        new_y = max(0, min(self.height - 1, agent.y + dy))
-
-        # Buscamos si hay un obstáculo
-        obstacle = next((o for o in self.obstacles if o['x'] == new_x and o['y'] == new_y), None)
-        if obstacle:
-            # ¿Es destructible?
-            if obstacle.get("destructible", False):
-                cost = obstacle.get("cost", 20)
-                if agent.energy > cost:
-                    agent.energy -= cost
-                    self.obstacles.remove(obstacle)
-                    print(f"💥 Agente {agent.id} rompió muro en ({new_x}, {new_y})")
-                    return # Se queda quieto el turno que rompe
-            
-            # Si no, choque normal
-            agent.energy -= 0.1
-            return 
-
-        if any(a.id != agent.id and a.x == new_x and a.y == new_y for a in self.agents):
-            return 
-
-        agent.x = new_x
-        agent.y = new_y
-        agent.energy -= 0.5
-        agent.steps_taken += 1
-        agent.path_history.append((new_x, new_y))
-
-    def _handle_interactions(self, agent):
-        for f in self.food[:]:
-            if f['x'] == agent.x and f['y'] == agent.y:
-                gain = f.get("value", 20)
-                agent.energy = min(150, agent.energy + gain)
-                self.food.remove(f)
-
-    def _check_stop_conditions(self):
-        if not self.is_unlimited and self.step_count >= self.max_steps:
-            self.is_running = False
-            return True
-        if self.stop_on_food and len(self.food) == 0 and len(self.agents) > 0:
-            self.is_running = False
-            return True
-        return False
-
-    def get_state(self) -> Dict[str, Any]:
-        return {
-            "type": "WORLD_UPDATE",
-            "data": {
-                "step": self.step_count,
-                "agents": [a.to_dict() for a in self.agents],
-                "food": self.food,
-                "obstacles": self.obstacles,
-                "width": self.width,
-                "height": self.height,
-                "isRunning": self.is_running,
-            }
-        }
