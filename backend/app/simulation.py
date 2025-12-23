@@ -398,6 +398,19 @@ class SimulationEngine:
     def _logic_explorer(self, agent, ws):
         if not hasattr(agent, "visited"): agent.visited = set()
         agent.visited.add((agent.x, agent.y))
+
+        # Prioridad: si ve comida, ir hacia la comida usando A* (o fallback directo)
+        visible_food = self._get_visible_food(agent)
+        if visible_food:
+            target = self._find_nearest_dict_from_list(agent, visible_food)
+            if target:
+                move = self._calculate_path_safe(agent, (target['x'], target['y']))
+                # Si A* no devuelve movimiento pero aún no estamos en la casilla, intentar moverse directamente
+                if move == (0, 0) and (agent.x, agent.y) != (target['x'], target['y']):
+                    return self._get_direction_towards(agent, target['x'], target['y'])
+                return move
+
+        # Comportamiento exploratorio por defecto (vecinos no visitados)
         neighbors = Pathfinding.get_neighbors(agent.x, agent.y, self.width, self.height, self.obstacles)
         unvisited = [pos for pos in neighbors if pos not in agent.visited]
         if unvisited: return self._target_to_move(agent, random.choice(unvisited))
