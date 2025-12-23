@@ -68,11 +68,28 @@ const ShareModal = ({
   const handleCopy = async () => {
     if (!shareLink?.full_url) return;
 
+    // Intento nativo
     try {
       await navigator.clipboard.writeText(shareLink.full_url);
       toast.success("Enlace copiado al portapapeles");
+      return;
     } catch (error) {
-      toast.error("No se pudo copiar el enlace");
+      // fallback más abajo
+    }
+
+    // Fallback para contextos sin HTTPS/permiso
+    try {
+      const el = document.createElement("textarea");
+      el.value = shareLink.full_url;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      toast.success("Enlace copiado (método alternativo)");
+    } catch (error) {
+      toast.error("No se pudo copiar. Copia manualmente el enlace.");
     }
   };
 

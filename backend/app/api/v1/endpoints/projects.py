@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, or_
 from uuid import UUID
 import secrets
+from datetime import datetime, timedelta, timezone
 from datetime import datetime, timedelta
 
 from app.api.deps import get_db, get_current_active_user
@@ -419,7 +420,7 @@ async def create_share_link(
     # Calcular expiración
     expires_at = None
     if share_data.expires_in_days:
-        expires_at = datetime.utcnow() + timedelta(days=share_data.expires_in_days)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=share_data.expires_in_days)
 
     # Crear enlace compartido
     shared_project = SharedProject(
@@ -477,13 +478,18 @@ async def get_shared_project(
         )
 
     # Verificar expiración
-    if shared.expires_at and shared.expires_at < datetime.utcnow():
-        shared.is_active = False
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_410_GONE,
-            detail="El enlace ha expirado"
-        )
+    if shared.expires_at:
+        expires_at = shared.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        now_utc = datetime.now(timezone.utc)
+        if expires_at < now_utc:
+            shared.is_active = False
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="El enlace ha expirado"
+            )
 
     # Incrementar contador de vistas
     shared.current_views += 1
