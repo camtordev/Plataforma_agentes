@@ -21,9 +21,26 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         script: |
           cd ~/Plataforma_agentes
+          
+          # 1. Limpieza profunda de Git (Evita conflictos)
           git checkout .
           git clean -fd
           git pull origin main
+          
+          # 2. CREAR ARCHIVO .ENV (¡Importante! No lo olvides)
+          # Esto inyecta tus credenciales reales en el servidor
+          echo "DATABASE_URL=${{ secrets.PROD_DATABASE_URL }}" > .env
+          # Si tienes más secretos, agrégalos aquí:
+          # echo "SECRET_KEY=${{ secrets.PROD_SECRET_KEY }}" >> .env
+          
+          # 3. Limpieza de Docker y Reconstrucción Forzada
           docker compose down
+          
+          # Borramos ese volumen específico por si acaso (el || true evita error si no existe)
           docker volume rm plataforma_agentes_build_volume || true
-          docker compose up -d --build
+          
+          # Aquí está la magia: --no-cache arregla el error del snapshot corrupto
+          docker compose build --no-cache
+          
+          # Levantamos (ya no hace falta --build porque acabamos de construir)
+          docker compose up -d
