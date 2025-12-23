@@ -420,8 +420,16 @@ class SimulationEngine:
     def _logic_collector(self, agent, ws):
         visible_food = self._get_visible_food(agent)
         if not visible_food: return self._logic_explorer(agent, ws)
-        target = self._find_nearest_from_list(agent, visible_food)
-        if target: return self._calculate_path_safe(agent, target)
+
+        # Usamos la versión que devuelve el diccionario para acceder a coordenadas
+        target_dict = self._find_nearest_dict_from_list(agent, visible_food)
+        if target_dict:
+            move = self._calculate_path_safe(agent, (target_dict['x'], target_dict['y']))
+            # Fallback: si A* no devuelve movimiento pero aún no estamos en la casilla objetivo,
+            # intentamos moverse directamente en la dirección del objetivo para evitar quedarse quieto.
+            if move == (0, 0) and (agent.x, agent.y) != (target_dict['x'], target_dict['y']):
+                return self._get_direction_towards(agent, target_dict['x'], target_dict['y'])
+            return move
         return 0, 0
 
     def _logic_cooperative(self, agent, ws):
