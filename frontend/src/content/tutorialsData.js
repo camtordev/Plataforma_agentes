@@ -81,14 +81,38 @@ export const TUTORIAL_LEVELS = [
     ],
 
     glossary: [
-      { term: "Observación", def: "Información perceptual que el agente recibe del entorno en cada ciclo (posición, objetos cercanos, estado del mundo)." },
-      { term: "Acción", def: "Operación que el agente ejecuta para modificar el entorno (UP, DOWN, LEFT, RIGHT, STAY, CLEAN, COLLECT)." },
-      { term: "Política (π)", def: "Función que mapea estados/observaciones a acciones. Puede ser determinista π(s) o estocástica π(a|s)." },
-      { term: "Episodio", def: "Secuencia completa de interacciones desde un estado inicial hasta un estado terminal (éxito, falla o límite de pasos)." },
-      { term: "Agente Autónomo", def: "Sistema capaz de actuar sin supervisión humana constante, tomando decisiones basadas en sus percepciones." },
-      { term: "Estado", def: "Configuración completa del sistema en un momento dado (posición de agentes, recursos, obstáculos, tiempo)." },
-      { term: "Sensor", def: "Mecanismo mediante el cual el agente percibe aspectos del entorno." },
-      { term: "Actuador", def: "Mecanismo mediante el cual el agente ejerce acciones sobre el entorno." },
+      {
+        term: "Observación",
+        def: "Información perceptual que el agente recibe del entorno en cada ciclo (posición, objetos cercanos, estado del mundo).",
+      },
+      {
+        term: "Acción",
+        def: "Operación que el agente ejecuta para modificar el entorno (UP, DOWN, LEFT, RIGHT, STAY, CLEAN, COLLECT).",
+      },
+      {
+        term: "Política (π)",
+        def: "Función que mapea estados/observaciones a acciones. Puede ser determinista π(s) o estocástica π(a|s).",
+      },
+      {
+        term: "Episodio",
+        def: "Secuencia completa de interacciones desde un estado inicial hasta un estado terminal (éxito, falla o límite de pasos).",
+      },
+      {
+        term: "Agente Autónomo",
+        def: "Sistema capaz de actuar sin supervisión humana constante, tomando decisiones basadas en sus percepciones.",
+      },
+      {
+        term: "Estado",
+        def: "Configuración completa del sistema en un momento dado (posición de agentes, recursos, obstáculos, tiempo).",
+      },
+      {
+        term: "Sensor",
+        def: "Mecanismo mediante el cual el agente percibe aspectos del entorno.",
+      },
+      {
+        term: "Actuador",
+        def: "Mecanismo mediante el cual el agente ejerce acciones sobre el entorno.",
+      },
     ],
 
     codeExampleTitle: "Ejemplo: Agente básico con estructura completa",
@@ -151,12 +175,19 @@ def act(observation):
     """
     # TODO: Implementa la lógica de decisión
     # Por ahora, retorna una acción fija para validar la estructura
+    # Reemplaza 'pass' con un return que devuelva una acción válida
     
-    return "STAY"
+    pass
 `,
       rules: {
-        mustInclude: ["def act", "return"],
-        mustIncludeAny: ['"up"', '"down"', '"left"', '"right"', '"stay"'],
+        mustInclude: ["def act", "return "],
+        mustIncludeAny: [
+          'return "up"',
+          'return "down"',
+          'return "left"',
+          'return "right"',
+          'return "stay"',
+        ],
       },
       tips: [
         "💡 La función debe retornar exactamente uno de los strings válidos: 'UP', 'DOWN', 'LEFT', 'RIGHT' o 'STAY'.",
@@ -177,7 +208,8 @@ def act(observation):
           "Un archivo estático",
         ],
         correct: 1,
-        explanation: "Un agente recibe observaciones, decide y ejecuta acciones.",
+        explanation:
+          "Un agente recibe observaciones, decide y ejecuta acciones.",
       },
       {
         q: "¿Qué es una acción?",
@@ -192,7 +224,12 @@ def act(observation):
       },
       {
         q: "¿Qué es el entorno?",
-        options: ["El mundo y reglas donde actúa el agente", "El teclado", "El token JWT", "El navegador"],
+        options: [
+          "El mundo y reglas donde actúa el agente",
+          "El teclado",
+          "El token JWT",
+          "El navegador",
+        ],
         correct: 0,
         explanation: "El entorno define reglas, estados válidos y dinámica.",
       },
@@ -210,7 +247,8 @@ def act(observation):
     ],
 
     workspacePractice: {
-      objective: "Familiarízate con el workspace y comprende cómo los agentes interactúan con el entorno. Aprenderás a colocar agentes, comida y obstáculos para crear tu primera simulación.",
+      objective:
+        "Familiarízate con el workspace y comprende cómo los agentes interactúan con el entorno. Aprenderás a colocar agentes, comida y obstáculos para crear tu primera simulación.",
       agentName: "Agente Reactivo",
       agentCode: `class ReactiveAgent(Agent):
     def decide(self, perception):
@@ -247,8 +285,8 @@ Este agente no planifica ni recuerda dónde ha estado. Simplemente reacciona a l
         "Coloca varias piezas de comida dispersas por el mapa",
         "Opcionalmente, selecciona 'Obstáculo' y coloca algunos para crear desafíos",
         "Presiona el botón 'Play' ▶️ en la parte superior para iniciar la simulación",
-        "Observa cómo el agente se mueve hacia la comida cuando la detecta cerca, o se mueve aleatoriamente cuando no hay comida visible"
-      ]
+        "Observa cómo el agente se mueve hacia la comida cuando la detecta cerca, o se mueve aleatoriamente cuando no hay comida visible",
+      ],
     },
   },
 
@@ -330,7 +368,10 @@ Este agente no planifica ni recuerda dónde ha estado. Simplemente reacciona a l
 
     glossary: [
       { term: "Reactivo", def: "Decide con lo que ve ahora (sin memoria)." },
-      { term: "Estímulo–respuesta", def: "Regla: si ocurre X, entonces haz Y." },
+      {
+        term: "Estímulo–respuesta",
+        def: "Regla: si ocurre X, entonces haz Y.",
+      },
     ],
 
     codeExampleTitle: "Ejemplo: decisión reactiva",
@@ -354,8 +395,19 @@ def decidir_y_actuar(percepcion):
     return ""
 `,
       rules: {
-        mustInclude: ["import random", "def decidir_y_actuar", "random.choice", "return"],
-        mustIncludeAny: ['"limpiar"', '"arriba"', '"abajo"', '"izquierda"', '"derecha"'],
+        mustInclude: [
+          "import random",
+          "def decidir_y_actuar",
+          "random.choice",
+          "return",
+        ],
+        mustIncludeAny: [
+          '"limpiar"',
+          '"arriba"',
+          '"abajo"',
+          '"izquierda"',
+          '"derecha"',
+        ],
       },
       tips: [
         "El if debe estar antes del random.choice.",
@@ -366,7 +418,12 @@ def decidir_y_actuar(percepcion):
     quiz: [
       {
         q: "Un agente reactivo decide usando…",
-        options: ["Memoria y planificación", "Solo la percepción actual", "Base de datos", "Internet"],
+        options: [
+          "Memoria y planificación",
+          "Solo la percepción actual",
+          "Base de datos",
+          "Internet",
+        ],
         correct: 1,
         explanation: "Reactivo = sin memoria, responde a lo percibido.",
       },
@@ -389,14 +446,20 @@ def decidir_y_actuar(percepcion):
       },
       {
         q: "¿Cuál es un error típico en este nivel?",
-        options: ["Usar if/else", "Olvidar return", "Devolver un string", "Importar random"],
+        options: [
+          "Usar if/else",
+          "Olvidar return",
+          "Devolver un string",
+          "Importar random",
+        ],
         correct: 1,
         explanation: "Si no devuelves acción, el agente queda inválido.",
       },
     ],
 
     workspacePractice: {
-      objective: "Experimenta con un agente reactivo y comprende cómo las reglas simples condición-acción pueden resolver tareas sin planificación compleja.",
+      objective:
+        "Experimenta con un agente reactivo y comprende cómo las reglas simples condición-acción pueden resolver tareas sin planificación compleja.",
       agentName: "Agente Reactivo",
       agentCode: `class ReactiveAgent(Agent):
     def decide(self, perception):
@@ -437,8 +500,8 @@ Este tipo de agente es efectivo en entornos simples donde la información inmedi
         "Nota que cuando la comida está lejos, el agente se mueve aleatoriamente sin dirección clara",
         "Observa que puede quedar atrapado dando vueltas si la comida está detrás de obstáculos",
         "Prueba colocar comida muy cerca del agente y ve cómo reacciona inmediatamente",
-        "Reflexiona: ¿Qué limitaciones tiene este enfoque reactivo puro?"
-      ]
+        "Reflexiona: ¿Qué limitaciones tiene este enfoque reactivo puro?",
+      ],
     },
   },
 
@@ -523,7 +586,10 @@ Este tipo de agente es efectivo en entornos simples donde la información inmedi
     ],
 
     glossary: [
-      { term: "Estado interno", def: "Datos que el agente conserva entre pasos." },
+      {
+        term: "Estado interno",
+        def: "Datos que el agente conserva entre pasos.",
+      },
       { term: "Visitados", def: "Conjunto de posiciones ya recorridas." },
     ],
 
@@ -566,32 +632,54 @@ Este tipo de agente es efectivo en entornos simples donde la información inmedi
     quiz: [
       {
         q: "¿Cuál es el objetivo de usar visitados?",
-        options: ["Hacer el código más largo", "Evitar loops y repetir celdas", "Eliminar el entorno", "Aumentar RAM"],
+        options: [
+          "Hacer el código más largo",
+          "Evitar loops y repetir celdas",
+          "Eliminar el entorno",
+          "Aumentar RAM",
+        ],
         correct: 1,
-        explanation: "La memoria ayuda a explorar sin repetir innecesariamente.",
+        explanation:
+          "La memoria ayuda a explorar sin repetir innecesariamente.",
       },
       {
         q: "¿Por qué usamos tuplas (x,y) y no listas [x,y] en un set?",
-        options: ["Porque tuplas son inmutables y hashables", "Porque listas son más rápidas", "Porque set no existe", "Porque Python lo prohíbe siempre"],
+        options: [
+          "Porque tuplas son inmutables y hashables",
+          "Porque listas son más rápidas",
+          "Porque set no existe",
+          "Porque Python lo prohíbe siempre",
+        ],
         correct: 0,
         explanation: "Listas no se pueden hashear, tuplas sí.",
       },
       {
         q: "¿Dónde se debe inicializar visitados?",
-        options: ["En decidir()", "En __init__", "En el frontend", "En la base de datos"],
+        options: [
+          "En decidir()",
+          "En __init__",
+          "En el frontend",
+          "En la base de datos",
+        ],
         correct: 1,
         explanation: "La memoria inicia cuando nace el agente.",
       },
       {
         q: "¿Qué pasa si no actualizas visitados al moverte?",
-        options: ["Nada", "Tu memoria no refleja la ruta real", "El agente aprende RL", "Se ejecuta BFS"],
+        options: [
+          "Nada",
+          "Tu memoria no refleja la ruta real",
+          "El agente aprende RL",
+          "Se ejecuta BFS",
+        ],
         correct: 1,
         explanation: "La memoria queda desfasada y pierde utilidad.",
       },
     ],
 
     workspacePractice: {
-      objective: "Experimenta con un agente explorador que usa memoria interna para rastrear posiciones visitadas y mejorar su cobertura del entorno sin repetir caminos inútilmente.",
+      objective:
+        "Experimenta con un agente explorador que usa memoria interna para rastrear posiciones visitadas y mejorar su cobertura del entorno sin repetir caminos inútilmente.",
       agentName: "Agente Explorador (Memoria)",
       agentCode: `class MemoryAgent(Agent):
     def __init__(self):
@@ -636,8 +724,8 @@ Este tipo de agente es ideal para tareas de exploración, mapeo y búsqueda exha
         "Nota cómo el agente evita volver a celdas ya visitadas",
         "Observa que cubre sistemáticamente el área disponible",
         "Compara mentalmente con el agente reactivo: ¿Ves la diferencia en eficiencia?",
-        "Prueba reiniciar y observar si el patrón es diferente (debido al random.choice)"
-      ]
+        "Prueba reiniciar y observar si el patrón es diferente (debido al random.choice)",
+      ],
     },
   },
 
@@ -726,12 +814,30 @@ Este tipo de agente es ideal para tareas de exploración, mapeo y búsqueda exha
     ],
 
     glossary: [
-      { term: "Plan", def: "Secuencia ordenada de acciones calculada para transitar desde el estado actual hasta el objetivo." },
-      { term: "BFS (Breadth-First Search)", def: "Algoritmo de búsqueda que explora el espacio de estados por niveles usando una cola FIFO." },
-      { term: "deque", def: "Estructura de datos de doble cola (double-ended queue) con O(1) para operaciones en ambos extremos." },
-      { term: "Completitud", def: "Propiedad de algoritmo que garantiza encontrar solución si existe." },
-      { term: "Optimalidad", def: "Propiedad de algoritmo que garantiza encontrar la mejor solución según alguna métrica." },
-      { term: "Frontera", def: "Conjunto de nodos generados pero aún no expandidos (la cola en BFS)." },
+      {
+        term: "Plan",
+        def: "Secuencia ordenada de acciones calculada para transitar desde el estado actual hasta el objetivo.",
+      },
+      {
+        term: "BFS (Breadth-First Search)",
+        def: "Algoritmo de búsqueda que explora el espacio de estados por niveles usando una cola FIFO.",
+      },
+      {
+        term: "deque",
+        def: "Estructura de datos de doble cola (double-ended queue) con O(1) para operaciones en ambos extremos.",
+      },
+      {
+        term: "Completitud",
+        def: "Propiedad de algoritmo que garantiza encontrar solución si existe.",
+      },
+      {
+        term: "Optimalidad",
+        def: "Propiedad de algoritmo que garantiza encontrar la mejor solución según alguna métrica.",
+      },
+      {
+        term: "Frontera",
+        def: "Conjunto de nodos generados pero aún no expandidos (la cola en BFS).",
+      },
     ],
 
     codeExampleTitle: "Ejemplo: estructura BFS",
@@ -771,31 +877,51 @@ def planificar_ruta(x0, y0, objetivo, entorno):
     return []
 `,
       rules: {
-        mustInclude: ["from collections import deque", "deque(", "visitados", "while", "popleft", "return"],
+        mustInclude: [
+          "from collections import deque",
+          "deque(",
+          "visitados",
+          "while",
+          "popleft",
+          "return",
+        ],
         mustIncludeAny: ['"arriba"', '"abajo"', '"izquierda"', '"derecha"'],
       },
-      tips: [
-        "BFS = cola FIFO (popleft).",
-        "Vecinos en 4 direcciones.",
-      ],
+      tips: ["BFS = cola FIFO (popleft).", "Vecinos en 4 direcciones."],
     },
 
     quiz: [
       {
         q: "BFS usa principalmente…",
-        options: ["Pila (stack)", "Cola (queue/deque)", "Árbol binario", "Red neuronal"],
+        options: [
+          "Pila (stack)",
+          "Cola (queue/deque)",
+          "Árbol binario",
+          "Red neuronal",
+        ],
         correct: 1,
         explanation: "BFS se implementa con cola FIFO (deque).",
       },
       {
         q: "¿Qué ventaja tiene BFS en grids sin pesos?",
-        options: ["Camino más corto", "Camino más largo", "No necesita objetivo", "Siempre es aleatorio"],
+        options: [
+          "Camino más corto",
+          "Camino más largo",
+          "No necesita objetivo",
+          "Siempre es aleatorio",
+        ],
         correct: 0,
-        explanation: "En grafos no ponderados, BFS encuentra el camino más corto.",
+        explanation:
+          "En grafos no ponderados, BFS encuentra el camino más corto.",
       },
       {
         q: "¿Por qué necesitamos visitados?",
-        options: ["Para dibujar UI", "Para evitar ciclos y repetición", "Para ejecutar RL", "Para hacer más lento"],
+        options: [
+          "Para dibujar UI",
+          "Para evitar ciclos y repetición",
+          "Para ejecutar RL",
+          "Para hacer más lento",
+        ],
         correct: 1,
         explanation: "Evita explorar infinitamente los mismos estados.",
       },
@@ -808,7 +934,8 @@ def planificar_ruta(x0, y0, objetivo, entorno):
     ],
 
     workspacePractice: {
-      objective: "Experimenta con un agente planificador que utiliza el algoritmo BFS para calcular el camino óptimo hacia objetivos y ejecutarlo paso a paso.",
+      objective:
+        "Experimenta con un agente planificador que utiliza el algoritmo BFS para calcular el camino óptimo hacia objetivos y ejecutarlo paso a paso.",
       agentName: "Agente Planificador (Búsqueda)",
       agentCode: `class PlannerAgent(Agent):
     def decide(self, world_state):
@@ -855,8 +982,8 @@ Este agente es más inteligente que el explorador porque planifica hacia un obje
         "Nota que NO se mueve aleatoriamente - cada paso tiene propósito",
         "Observa cómo rodea los obstáculos de forma inteligente",
         "Compara con los agentes anteriores: este es mucho más eficiente",
-        "Prueba crear diferentes laberintos y ve cómo el agente siempre encuentra el camino"
-      ]
+        "Prueba crear diferentes laberintos y ve cómo el agente siempre encuentra el camino",
+      ],
     },
   },
 
@@ -966,7 +1093,13 @@ def astar(inicio, objetivo, entorno):
     return []
 `,
       rules: {
-        mustInclude: ["import heapq", "def manhattan", "abs(", "def astar", "heapq"],
+        mustInclude: [
+          "import heapq",
+          "def manhattan",
+          "abs(",
+          "def astar",
+          "heapq",
+        ],
         mustIncludeAny: ["f", "g", "h"],
       },
       tips: [
@@ -976,14 +1109,40 @@ def astar(inicio, objetivo, entorno):
     },
 
     quiz: [
-      { q: "A* prioriza nodos por…", options: ["g-h", "g+h", "h-g", "g*h"], correct: 1, explanation: "La fórmula estándar es f=g+h." },
-      { q: "Manhattan se calcula como…", options: ["sqrt(dx²+dy²)", "|dx|+|dy|", "dx*dy", "|dx|-|dy|"], correct: 1, explanation: "En grid cardinal, Manhattan es |dx|+|dy|." },
-      { q: "heapq se usa para…", options: ["Pila", "Cola de prioridad", "Diccionario", "Regex"], correct: 1, explanation: "heapq implementa prioridad por el menor valor." },
-      { q: "A* suele explorar menos que BFS porque…", options: ["No usa vecinos", "La heurística guía hacia el objetivo", "No necesita objetivo", "Siempre es aleatorio"], correct: 1, explanation: "La heurística reduce exploración innecesaria." },
+      {
+        q: "A* prioriza nodos por…",
+        options: ["g-h", "g+h", "h-g", "g*h"],
+        correct: 1,
+        explanation: "La fórmula estándar es f=g+h.",
+      },
+      {
+        q: "Manhattan se calcula como…",
+        options: ["sqrt(dx²+dy²)", "|dx|+|dy|", "dx*dy", "|dx|-|dy|"],
+        correct: 1,
+        explanation: "En grid cardinal, Manhattan es |dx|+|dy|.",
+      },
+      {
+        q: "heapq se usa para…",
+        options: ["Pila", "Cola de prioridad", "Diccionario", "Regex"],
+        correct: 1,
+        explanation: "heapq implementa prioridad por el menor valor.",
+      },
+      {
+        q: "A* suele explorar menos que BFS porque…",
+        options: [
+          "No usa vecinos",
+          "La heurística guía hacia el objetivo",
+          "No necesita objetivo",
+          "Siempre es aleatorio",
+        ],
+        correct: 1,
+        explanation: "La heurística reduce exploración innecesaria.",
+      },
     ],
 
     workspacePractice: {
-      objective: "Compara el algoritmo A* con BFS observando cómo la heurística Manhattan hace que el agente explore menos nodos y encuentre caminos de forma más eficiente.",
+      objective:
+        "Compara el algoritmo A* con BFS observando cómo la heurística Manhattan hace que el agente explore menos nodos y encuentre caminos de forma más eficiente.",
       agentName: "Agente Planificador (Búsqueda)",
       agentCode: `class PlannerAgent(Agent):
     def decide(self, world_state):
@@ -1031,8 +1190,8 @@ Resultado:
         "Mentalmente compara: BFS exploraría en todas direcciones uniformemente",
         "A* se enfoca más en la dirección del objetivo gracias a la heurística",
         "Prueba con diferentes configuraciones de laberintos",
-        "Nota: La ventaja de A* es más evidente en mapas muy grandes"
-      ]
+        "Nota: La ventaja de A* es más evidente en mapas muy grandes",
+      ],
     },
   },
 
@@ -1116,7 +1275,10 @@ Agente A percibe comida
     ],
 
     glossary: [
-      { term: "Mensaje", def: "Paquete de información para coordinación (tipo + contenido)." },
+      {
+        term: "Mensaje",
+        def: "Paquete de información para coordinación (tipo + contenido).",
+      },
       { term: "Cooperación", def: "Agentes trabajan hacia un objetivo común." },
     ],
 
@@ -1152,7 +1314,12 @@ Agente A percibe comida
         pass
 `,
       rules: {
-        mustInclude: ["self.mensajes", "append", "recibir_mensaje", "enviar_mensaje"],
+        mustInclude: [
+          "self.mensajes",
+          "append",
+          "recibir_mensaje",
+          "enviar_mensaje",
+        ],
         mustIncludeAny: ["tipo", "contenido", "de"],
       },
       tips: [
@@ -1162,14 +1329,55 @@ Agente A percibe comida
     },
 
     quiz: [
-      { q: "Un sistema multi-agente implica…", options: ["Solo un agente", "Múltiples agentes que interactúan", "Solo una base de datos", "Solo UI"], correct: 1, explanation: "MAS = múltiples agentes en el mismo entorno." },
-      { q: "Un mensaje mínimo debería incluir…", options: ["Solo color", "Remitente/tipo/contenido", "Solo reward", "Solo token"], correct: 1, explanation: "Estructura ayuda a coordinar y depurar." },
-      { q: "Cooperación significa…", options: ["Competir", "Trabajar hacia un objetivo común", "No actuar", "Eliminar el entorno"], correct: 1, explanation: "Cooperación = objetivo compartido." },
-      { q: "¿Qué error común rompe la cooperación?", options: ["Limpiar mensajes", "No estructurar mensajes", "Usar dicts", "Enviar remitente"], correct: 1, explanation: "Sin estructura, no puedes tomar decisiones consistentes." },
+      {
+        q: "Un sistema multi-agente implica…",
+        options: [
+          "Solo un agente",
+          "Múltiples agentes que interactúan",
+          "Solo una base de datos",
+          "Solo UI",
+        ],
+        correct: 1,
+        explanation: "MAS = múltiples agentes en el mismo entorno.",
+      },
+      {
+        q: "Un mensaje mínimo debería incluir…",
+        options: [
+          "Solo color",
+          "Remitente/tipo/contenido",
+          "Solo reward",
+          "Solo token",
+        ],
+        correct: 1,
+        explanation: "Estructura ayuda a coordinar y depurar.",
+      },
+      {
+        q: "Cooperación significa…",
+        options: [
+          "Competir",
+          "Trabajar hacia un objetivo común",
+          "No actuar",
+          "Eliminar el entorno",
+        ],
+        correct: 1,
+        explanation: "Cooperación = objetivo compartido.",
+      },
+      {
+        q: "¿Qué error común rompe la cooperación?",
+        options: [
+          "Limpiar mensajes",
+          "No estructurar mensajes",
+          "Usar dicts",
+          "Enviar remitente",
+        ],
+        correct: 1,
+        explanation: "Sin estructura, no puedes tomar decisiones consistentes.",
+      },
     ],
 
     workspacePractice: {
-      objective: "Experimenta con múltiples agentes cooperativos que comparten información para lograr objetivos comunes mediante comunicación y coordinación.",
+      objective:
+        "Experimenta con múltiples agentes cooperativos que comparten información para lograr objetivos comunes mediante comunicación y coordinación.",
       agentName: "Agente Cooperativo",
       agentCode: `class CooperativeAgent(Agent):
     def decide(self, world_state):
@@ -1219,8 +1427,8 @@ Esto es fundamental en sistemas multi-agente donde la colaboración mejora el re
         "Nota cómo se comunican y coordinan sus movimientos",
         "Compara con tener múltiples agentes reactivos independientes",
         "Reflexiona: ¿Cómo mejora la cooperación la eficiencia del sistema?",
-        "Prueba con diferentes cantidades de agentes (2, 5, 8) y observa diferencias"
-      ]
+        "Prueba con diferentes cantidades de agentes (2, 5, 8) y observa diferencias",
+      ],
     },
   },
 
@@ -1295,8 +1503,14 @@ actuar       aplicar desempate:
     ],
 
     glossary: [
-      { term: "Conflicto", def: "Dos o más agentes quieren el mismo recurso/acción." },
-      { term: "Determinismo", def: "Misma entrada → misma decisión (útil en simulación)." },
+      {
+        term: "Conflicto",
+        def: "Dos o más agentes quieren el mismo recurso/acción.",
+      },
+      {
+        term: "Determinismo",
+        def: "Misma entrada → misma decisión (útil en simulación).",
+      },
     ],
 
     codeExampleTitle: "Ejemplo: ganador por distancia e id",
@@ -1325,14 +1539,50 @@ actuar       aplicar desempate:
     },
 
     quiz: [
-      { q: "Competencia ocurre cuando…", options: ["No hay agentes", "Recursos son limitados", "Todo es cooperativo", "No hay objetivos"], correct: 1, explanation: "Compiten cuando hay escasez." },
-      { q: "La regla de desempate propuesta es…", options: ["Mayor distancia", "Menor distancia, luego menor id", "Menor id siempre", "Aleatorio"], correct: 1, explanation: "Primero distancia, luego id." },
-      { q: "¿Por qué conviene determinismo en simulación?", options: ["Para que sea más lenta", "Para reproducir resultados y depurar", "Para ocultar errores", "Para eliminar logs"], correct: 1, explanation: "Ayuda a replicar escenarios." },
-      { q: "¿Qué función de Python es clave en la práctica?", options: ["sum()", "min() con key", "print()", "open()"], correct: 1, explanation: "min con key permite aplicar la regla." },
+      {
+        q: "Competencia ocurre cuando…",
+        options: [
+          "No hay agentes",
+          "Recursos son limitados",
+          "Todo es cooperativo",
+          "No hay objetivos",
+        ],
+        correct: 1,
+        explanation: "Compiten cuando hay escasez.",
+      },
+      {
+        q: "La regla de desempate propuesta es…",
+        options: [
+          "Mayor distancia",
+          "Menor distancia, luego menor id",
+          "Menor id siempre",
+          "Aleatorio",
+        ],
+        correct: 1,
+        explanation: "Primero distancia, luego id.",
+      },
+      {
+        q: "¿Por qué conviene determinismo en simulación?",
+        options: [
+          "Para que sea más lenta",
+          "Para reproducir resultados y depurar",
+          "Para ocultar errores",
+          "Para eliminar logs",
+        ],
+        correct: 1,
+        explanation: "Ayuda a replicar escenarios.",
+      },
+      {
+        q: "¿Qué función de Python es clave en la práctica?",
+        options: ["sum()", "min() con key", "print()", "open()"],
+        correct: 1,
+        explanation: "min con key permite aplicar la regla.",
+      },
     ],
 
     workspacePractice: {
-      objective: "Observa cómo múltiples agentes compiten por recursos limitados y aprende sobre estrategias competitivas y resolución de conflictos en sistemas multi-agente.",
+      objective:
+        "Observa cómo múltiples agentes compiten por recursos limitados y aprende sobre estrategias competitivas y resolución de conflictos en sistemas multi-agente.",
       agentName: "Agente Competitivo",
       agentCode: `class CompetitiveAgent(Agent):
     def decide(self, world_state):
@@ -1379,8 +1629,8 @@ Desafíos:
         "Nota que pueden bloquearse mutuamente o competir por la misma comida",
         "Compara con agentes cooperativos: aquí NO hay colaboración",
         "Prueba aumentar/disminuir la cantidad de comida y observa cambios",
-        "Reflexiona: ¿Cuándo es mejor cooperar y cuándo competir?"
-      ]
+        "Reflexiona: ¿Cuándo es mejor cooperar y cuándo competir?",
+      ],
     },
   },
 
@@ -1493,7 +1743,14 @@ def choose_action(state, eps=0.2):
     return "arriba"
 `,
       rules: {
-        mustInclude: ["Q = {}", "Q.get(", "random.random", "random.choice", "max(", "key=lambda"],
+        mustInclude: [
+          "Q = {}",
+          "Q.get(",
+          "random.random",
+          "random.choice",
+          "max(",
+          "key=lambda",
+        ],
         mustIncludeAny: ["eps", "q"],
       },
       tips: [
@@ -1503,14 +1760,55 @@ def choose_action(state, eps=0.2):
     },
 
     quiz: [
-      { q: "¿Qué representa Q(s,a)?", options: ["Color", "Valor esperado de tomar acción a en estado s", "Obstáculo", "Token"], correct: 1, explanation: "Q estima el retorno esperado." },
-      { q: "ε en ε-greedy significa…", options: ["Probabilidad de explorar", "Probabilidad de terminar", "Probabilidad de crash", "Probabilidad de limpiar"], correct: 0, explanation: "ε controla exploración." },
-      { q: "¿Por qué get_q usa valor por defecto 0.0?", options: ["Por estética", "Para manejar estados no vistos", "Para eliminar aprendizaje", "Para hacer más lento"], correct: 1, explanation: "Al inicio Q no tiene entradas para todos los pares." },
-      { q: "Explotar significa…", options: ["Elegir acción aleatoria", "Elegir la mejor acción conocida", "Reiniciar episodio", "Borrar Q"], correct: 1, explanation: "Explotación = usar lo mejor que sabes." },
+      {
+        q: "¿Qué representa Q(s,a)?",
+        options: [
+          "Color",
+          "Valor esperado de tomar acción a en estado s",
+          "Obstáculo",
+          "Token",
+        ],
+        correct: 1,
+        explanation: "Q estima el retorno esperado.",
+      },
+      {
+        q: "ε en ε-greedy significa…",
+        options: [
+          "Probabilidad de explorar",
+          "Probabilidad de terminar",
+          "Probabilidad de crash",
+          "Probabilidad de limpiar",
+        ],
+        correct: 0,
+        explanation: "ε controla exploración.",
+      },
+      {
+        q: "¿Por qué get_q usa valor por defecto 0.0?",
+        options: [
+          "Por estética",
+          "Para manejar estados no vistos",
+          "Para eliminar aprendizaje",
+          "Para hacer más lento",
+        ],
+        correct: 1,
+        explanation: "Al inicio Q no tiene entradas para todos los pares.",
+      },
+      {
+        q: "Explotar significa…",
+        options: [
+          "Elegir acción aleatoria",
+          "Elegir la mejor acción conocida",
+          "Reiniciar episodio",
+          "Borrar Q",
+        ],
+        correct: 1,
+        explanation: "Explotación = usar lo mejor que sabes.",
+      },
     ],
 
     workspacePractice: {
-      objective: "Observa un agente que aprende por refuerzo (Q-Learning), mejorando su comportamiento a través de la experiencia mediante recompensas y castigos.",
+      objective:
+        "Observa un agente que aprende por refuerzo (Q-Learning), mejorando su comportamiento a través de la experiencia mediante recompensas y castigos.",
       agentName: "Agente Q-Learning (RL)",
       agentCode: `class QLearningAgent(Agent):
     def update(self, state, action, reward, next_state):
@@ -1559,9 +1857,8 @@ Resultado: Después de entrenar, el agente encuentra la estrategia óptima sin q
         "Déjalo correr varios minutos para ver la mejora",
         "Nota: A diferencia de los otros agentes, este NO tiene conocimiento previo",
         "Aprende la política óptima desde cero mediante prueba y error",
-        "Reflexiona: Este es el fundamento de IA moderna (AlphaGo, GPT, etc.)"
-      ]
+        "Reflexiona: Este es el fundamento de IA moderna (AlphaGo, GPT, etc.)",
+      ],
     },
   },
-]
-
+];
