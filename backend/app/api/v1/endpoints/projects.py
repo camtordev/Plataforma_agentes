@@ -250,20 +250,15 @@ async def export_project(
     except Exception:
         state = {}
 
-    # Si no hay estado vivo (p. ej., otro worker), usar el persistido
-    if not state:
-        state = project.world_state or {}
-
-    if state:
-        # Actualizamos campos efímeros antes de exportar y los persistimos
+    # Si el estado vivo tiene datos, usarlo; si está vacío, conservar lo persistido
+    if state and (state.get("agents") or state.get("food") or state.get("obstacles") or state.get("config")):
         project.world_state = state
         project.grid_width = state.get("width", project.grid_width)
         project.grid_height = state.get("height", project.grid_height)
         if "config" in state:
             project.simulation_config = state.get("config")
-        db.commit()
 
-    # Serializar con pydantic tomando atributos del modelo
+    # Serializar con pydantic tomando atributos del modelo sin mutar la BD al exportar
     export_data = ProjectExport.model_validate(project, from_attributes=True)
 
     return export_data
