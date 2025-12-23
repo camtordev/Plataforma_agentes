@@ -77,14 +77,14 @@ const WorkspaceWithProvider = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Sin proyecto: generar clave de workspace compartible y reflejarla en la URL
+  // Asegurar que siempre exista un workspaceId en la URL (aislar sesiones por usuario)
   useEffect(() => {
     const currentWs = searchParams.get("workspace") || searchParams.get("room");
     if (currentWs && currentWs !== workspaceId) {
       setWorkspaceId(currentWs);
       return;
     }
-    if (!projectId && !workspaceId) {
+    if (!workspaceId) {
       const newId =
         (typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID()
