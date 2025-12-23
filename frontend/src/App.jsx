@@ -77,29 +77,35 @@ const WorkspaceWithProvider = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Asegurar que siempre exista un workspaceId (aislar sesiones; compartir solo si se comparte el enlace)
+  // Asegurar workspaceId: por proyecto usa uno estable por usuario (localStorage); sin proyecto genera uno nuevo
   useEffect(() => {
     const currentWs = searchParams.get("workspace") || searchParams.get("room");
     if (currentWs && currentWs !== workspaceId) {
       setWorkspaceId(currentWs);
+      // Persistir para este proyecto (solo a nivel cliente) para reutilizar la misma sala
+      if (projectId) {
+        localStorage.setItem(`workspace:${projectId}`, currentWs);
+      }
       return;
     }
     if (!workspaceId) {
+      // Intentar reutilizar el workspace previo del mismo proyecto (solo este usuario)
+      const stored = projectId ? localStorage.getItem(`workspace:${projectId}`) : null;
       const newId =
+        stored ||
         (typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
       setWorkspaceId(newId);
+      if (projectId && !stored) {
+        localStorage.setItem(`workspace:${projectId}`, newId);
+      }
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set("workspace", newId);
       setSearchParams(nextParams, { replace: true });
-      // Aseguramos que la URL cambie sin empujar historial adicional
-      navigate(
-        `${location.pathname}?${nextParams.toString()}`,
-        { replace: true }
-      );
+      navigate(`${location.pathname}?${nextParams.toString()}`, { replace: true });
     }
-  }, [projectId, searchParams, setSearchParams, workspaceId, navigate]);
+  }, [projectId, searchParams, setSearchParams, workspaceId, navigate, location.pathname]);
 
   return (
     <SimulationProvider
