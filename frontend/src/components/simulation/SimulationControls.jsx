@@ -1,14 +1,20 @@
 "use client"
 import React, { useState } from "react"
-import { Play, Pause, Square, RotateCcw, SkipForward, Gauge } from "lucide-react"
+import { Play, Pause, Square, RotateCcw, SkipForward, Gauge, Save } from "lucide-react"
 import { useSimulation } from "../../context/SimulationContext"
+import { useSearchParams } from "react-router-dom"
+import { updateProject } from "../../services/projectService"
+import { toast } from "react-hot-toast"
 
 const SimulationControls = () => {
   // 1. Obtenemos todo del Contexto (incluyendo sendMessage)
-  const { isRunning, setIsRunning, worldState, sendMessage } = useSimulation()
+  const { isRunning, setIsRunning, worldState, sendMessage, gridConfig, simulationConfig, isReadOnly } = useSimulation()
+  const [searchParams] = useSearchParams()
+  const projectId = searchParams.get("project")
   
   // Estado local para la UI de velocidad
   const [speedMultiplier, setSpeedMultiplier] = useState(1)
+  const [saving, setSaving] = useState(false)
 
   // --- MANEJADORES ---
 
@@ -42,6 +48,31 @@ const SimulationControls = () => {
   const handleSpeedChange = (val) => {
     setSpeedMultiplier(val)
     sendMessage({ type: "SET_SPEED", data: { speed: val } })
+  }
+
+  const handleSave = async () => {
+    if (!projectId || isReadOnly) return
+    setSaving(true)
+    try {
+      const payload = {
+        grid_width: gridConfig?.width,
+        grid_height: gridConfig?.height,
+        cell_size: gridConfig?.cellSize,
+        simulation_config: simulationConfig,
+        world_state: {
+          ...(worldState || {}),
+          width: gridConfig?.width,
+          height: gridConfig?.height,
+          isRunning,
+        },
+      }
+      await updateProject(projectId, payload)
+      toast.success("Proyecto guardado")
+    } catch (err) {
+      toast.error(err?.message || "No se pudo guardar")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -114,6 +145,25 @@ const SimulationControls = () => {
             ))}
         </div>
       </div>
+
+      {/* Guardar proyecto */}
+      {projectId && !isReadOnly && (
+        <div className="ml-auto">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-semibold transition-colors border ${
+              saving
+                ? "bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-500 text-white border-blue-500/60"
+            }`}
+            title="Guardar estado del proyecto"
+          >
+            <Save size={14} />
+            {saving ? "Guardando..." : "Guardar"}
+          </button>
+        </div>
+      )}
 
        {/* Step Counter */}
        <div className="ml-2 font-mono text-zinc-500 text-xs border-l border-zinc-700 pl-3">
