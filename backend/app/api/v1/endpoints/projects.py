@@ -263,7 +263,8 @@ async def export_project(
             project.simulation_config = state.get("config")
         db.commit()
 
-    export_data = ProjectExport(**project.__dict__)
+    # Serializar con pydantic tomando atributos del modelo
+    export_data = ProjectExport.model_validate(project, from_attributes=True)
 
     return export_data
 
