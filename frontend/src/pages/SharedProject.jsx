@@ -242,9 +242,10 @@ const SharedProject = () => {
               <div className="flex-1 min-h-0">
                 <SimulationProvider
                   projectId={project.id}
+                  workspaceId={token}
                   readOnly={true}
                   instanceId={viewerInstance}
-                  key={`shared-${project.id}`}
+                  key={`shared-${project.id}-${token}`}
                 >
                   <SharedWorkspace />
                 </SimulationProvider>
