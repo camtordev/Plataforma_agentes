@@ -169,8 +169,7 @@ const SharedProject = () => {
               )}
               <div className="flex flex-wrap gap-3 text-sm text-zinc-400">
                 <span>
-                  3f1 Creado el{" "}
-                  {new Date(project.created_at).toLocaleDateString()}
+                  Creado el {new Date(project.created_at).toLocaleDateString()}
                 </span>
               </div>
             </div>
@@ -239,7 +238,7 @@ const SharedProject = () => {
           </div>
 
           <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950">
-            <div className="h-[85vh] pt-4 pb-4">
+            <div className="h-[90vh]">
               <SimulationProvider
                 projectId={project.id}
                 readOnly={true}
@@ -270,7 +269,8 @@ const SharedWorkspace = () => {
     setIsRunning(true);
   }, [setIsRunning]);
 
-  return <GridEditor hideControls={true} />;
+  // Mostrar los controles existentes de GridEditor (play/pausa), pero sin herramientas de edición
+  return <GridEditor hideControls={false} />;
 };
 
 export default SharedProject;
