@@ -5,6 +5,7 @@ from .agents.factory import AgentFactory
 from .algorithms.pathfinding import Pathfinding
 
 # 1. IMPORTANTE: Importamos el ejecutor seguro
+# Asegúrate de que backend/app/services/sandbox/executor.py exista
 from .services.sandbox.executor import execute_custom_agent_code
 
 class SimulationEngine:
@@ -40,7 +41,6 @@ class SimulationEngine:
     def load_state(self, state: Dict[str, Any]):
         """
         Hidrata el motor desde un snapshot de estado serializado.
-        Intenta recrear agentes usando la factory; si falla, omite ese agente.
         """
         if not state:
             return
@@ -66,19 +66,24 @@ class SimulationEngine:
                 x = a.get("x", 0)
                 y = a.get("y", 0)
                 strategy = a.get("strategy", "bfs")
-                agent = AgentFactory.create_agent(agent_type, agent_id, x, y, strategy=strategy)
+                
+                # Intento robusto de recreación
+                try:
+                    agent = AgentFactory.create_agent(agent_type, agent_id, x, y, strategy=strategy)
+                except TypeError:
+                    agent = AgentFactory.create_agent(agent_type, agent_id, x, y)
 
                 # Propiedades opcionales
-                for attr in [
-                    "energy",
-                    "steps_taken",
-                    "vision_radius",
-                    "color",
-                ]:
+                for attr in ["energy", "steps_taken", "vision_radius", "color"]:
                     if attr in a:
                         setattr(agent, attr, a[attr])
+                
                 if "path_history" in a:
                     agent.path_history = a["path_history"]
+                
+                # Restaurar código personalizado si existe
+                if "custom_code" in a:
+                    agent.custom_code = a["custom_code"]
 
                 self.agents.append(agent)
             except Exception as e:
@@ -91,32 +96,60 @@ class SimulationEngine:
         if "stopOnFood" in config: self.stop_on_food = bool(config["stopOnFood"])
         if "speed" in config and float(config["speed"]) > 0: self.speed = 0.5 / float(config["speed"])
 
+    # =========================================================
+    # 🚨 FIX: ADD_AGENT ROBUSTO (Maneja errores silenciosos)
+    # =========================================================
     def add_agent(self, x: int, y: int, agent_type: str = "reactive", strategy: str = "bfs", config: Dict = None):
-        if self._is_occupied(x, y): return
+        # 1. Verificar si está ocupado
+        if self._is_occupied(x, y): 
+            print(f"⚠️ [Simulation] No se puede colocar agente: Casilla {x},{y} ocupada.")
+            return
 
         try:
             new_id = f"agent_{len(self.agents)}"
-            agent = AgentFactory.create_agent(agent_type, new_id, x, y, strategy=strategy)
             
+            # --- INTENTO DE CREACIÓN ROBUSTO ---
+            try:
+                # Intentamos pasar la estrategia (Lo ideal)
+                agent = AgentFactory.create_agent(agent_type, new_id, x, y, strategy=strategy)
+            except TypeError:
+                print("⚠️ [Simulation] El Factory no acepta 'strategy', probando sin ella...")
+                # Si falla (ej: Factory antigua), probamos sin strategy
+                agent = AgentFactory.create_agent(agent_type, new_id, x, y)
+            except Exception as e:
+                print(f"❌ [Simulation] Error FATAL en Factory: {e}")
+                return
+            
+            # --- CONFIGURACIÓN EXTRA ---
             if config:
-                if "color" in config: agent.color = config["color"]
-                if "initialEnergy" in config: agent.energy = int(config["initialEnergy"])
+                if "color" in config and hasattr(agent, "color"): 
+                    agent.color = config["color"]
+                
+                if "initialEnergy" in config: 
+                    agent.energy = int(config["initialEnergy"])
+                
                 if "visionRadius" in config:
                     try:
                         agent.vision_radius = int(float(config["visionRadius"]))
-                    except (ValueError, TypeError):
+                    except:
                         agent.vision_radius = 5
-                else:
-                    agent.vision_radius = 5
             else:
                 agent.vision_radius = 5
 
-            agent.visited = set()
+            # Inicializar conjunto de visitados si no existe
+            if not hasattr(agent, "visited"):
+                agent.visited = set()
             agent.visited.add((x, y))
+            
+            # --- EXITO ---
             self.agents.append(agent)
+            print(f"✅ [Simulation] Agente {new_id} ({agent_type}) creado en ({x}, {y})")
             
         except Exception as e:
-            print(f" ❌  Error creando agente: {e}")
+            # ESTE ES EL PRINT QUE TE DIRÁ QUÉ PASA EN LOS LOGS
+            print(f"❌ [Simulation] ERROR CRÍTICO creando agente: {e}")
+            import traceback
+            traceback.print_exc()
 
     def add_food(self, x: int, y: int, food_type: str = "food", config: Dict = None):
         if self._is_occupied(x, y): return
@@ -158,7 +191,7 @@ class SimulationEngine:
         return False
 
     # =========================================================================
-    #  LÓGICA DE IA
+    #  🧠 LÓGICA DE IA
     # =========================================================================
 
     def _get_agent_decision(self, agent, world_state) -> Tuple[int, int]:
@@ -216,7 +249,7 @@ class SimulationEngine:
             return step
         return 0, 0
 
-    # ... TUS LÓGICAS EXISTENTES (reactive, explorer, etc) SE MANTIENEN IGUAL ...
+    # ... TUS LÓGICAS EXISTENTES ...
     def _logic_reactive(self, agent, ws):
         visible = self._get_visible_food(agent)
         if visible:
@@ -298,7 +331,6 @@ class SimulationEngine:
             return 0, 0
             
         # Construimos la "Percepción" (lo que ve el agente)
-        # Esto es el diccionario que el usuario usa en su código como 'perception["..."]'
         visible_food = self._get_visible_food(agent)
         perception = {
             "x": agent.x,
@@ -307,7 +339,6 @@ class SimulationEngine:
             "width": self.width,
             "height": self.height,
             "nearby_food": [(f['x'], f['y']) for f in visible_food],
-            # Pasamos todos los obstáculos cercanos (podríamos filtrar por radio también)
             "nearby_obstacles": [(o['x'], o['y']) for o in self.obstacles]
         }
         
