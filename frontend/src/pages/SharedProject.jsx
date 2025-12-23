@@ -238,15 +238,17 @@ const SharedProject = () => {
           </div>
 
           <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950">
-            <div className="h-[90vh]">
-              <SimulationProvider
-                projectId={project.id}
-                readOnly={true}
-                instanceId={viewerInstance}
-                key={`shared-${project.id}`}
-              >
-                <SharedWorkspace />
-              </SimulationProvider>
+            <div className="h-[90vh] flex flex-col min-h-0">
+              <div className="flex-1 min-h-0">
+                <SimulationProvider
+                  projectId={project.id}
+                  readOnly={true}
+                  instanceId={viewerInstance}
+                  key={`shared-${project.id}`}
+                >
+                  <SharedWorkspace />
+                </SimulationProvider>
+              </div>
             </div>
           </div>
         </div>
