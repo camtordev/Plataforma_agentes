@@ -103,6 +103,8 @@ export function SimulationProvider({
     const baseWs =
       import.meta.env.VITE_WS_URL || "ws://3.228.25.217/ws/simulacion";
     const url = new URL(baseWs);
+    // No intentamos conectar hasta tener workspaceId definido para evitar mezclar sesiones
+    if (!workspaceId) return;
     if (projectId) {
       url.searchParams.set("project", projectId);
     }

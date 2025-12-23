@@ -203,9 +203,13 @@ const Gallery = () => {
                   {/* Acciones */}
                   <div className="mt-auto flex gap-2">
                     <button
-                      onClick={() =>
-                        (window.location.href = `/workspace?project=${project.id}&readonly=1`)
-                      }
+                      onClick={() => {
+                        const wsId =
+                          (typeof crypto !== "undefined" && crypto.randomUUID
+                            ? crypto.randomUUID()
+                            : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+                        window.location.href = `/workspace?project=${project.id}&readonly=1&workspace=${wsId}`;
+                      }}
                       className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       Ver Proyecto
