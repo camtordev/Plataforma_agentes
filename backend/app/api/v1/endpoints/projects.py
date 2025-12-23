@@ -247,16 +247,20 @@ async def export_project(
     try:
         engine = get_any_engine_for_project(project_id) or get_engine(project_id)
         state = engine.get_state().get("data", {}) if engine else {}
-        if state:
-            # Actualizamos campos ef meros antes de exportar
-            project.world_state = state
-            project.grid_width = state.get("width", project.grid_width)
-            project.grid_height = state.get("height", project.grid_height)
-            if "config" in state:
-                project.simulation_config = state.get("config")
     except Exception:
-        # Si no hay engine o falla, exportamos lo que tengamos persistido
-        pass
+        state = {}
+
+    # Si no hay estado vivo (p. ej., otro worker), usar el persistido
+    if not state:
+        state = project.world_state or {}
+
+    if state:
+        # Actualizamos campos efímeros antes de exportar
+        project.world_state = state
+        project.grid_width = state.get("width", project.grid_width)
+        project.grid_height = state.get("height", project.grid_height)
+        if "config" in state:
+            project.simulation_config = state.get("config")
 
     export_data = ProjectExport(**project.__dict__)
 
@@ -318,17 +322,21 @@ async def fork_project(
     try:
         engine = get_any_engine_for_project(project_id) or get_engine(project_id)
         state = engine.get_state().get("data", {}) if engine else {}
-        if state.get("agents") or state.get("food") or state.get("obstacles"):
-
-            original_project.world_state = state
-            original_project.grid_width = state.get(
-                "width", original_project.grid_width)
-            original_project.grid_height = state.get(
-                "height", original_project.grid_height)
-            if "config" in state:
-                original_project.simulation_config = state.get("config")
     except Exception:
-        pass
+        state = {}
+
+    if not state:
+        state = original_project.world_state or {}
+
+    if state.get("agents") or state.get("food") or state.get("obstacles"):
+
+        original_project.world_state = state
+        original_project.grid_width = state.get(
+            "width", original_project.grid_width)
+        original_project.grid_height = state.get(
+            "height", original_project.grid_height)
+        if "config" in state:
+            original_project.simulation_config = state.get("config")
 
     # Crear fork
     forked_project = Project(
